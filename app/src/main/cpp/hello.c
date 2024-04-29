@@ -74,7 +74,7 @@ Java_com_example_triangle_MainActivity_step(JNIEnv *env, jclass clazz) {
     LOGI("Native method step() called.");
 
     static float angle = 0.0f;
-    angle += 1.0f;
+    angle += 0.02f;
 
     float cosAngle = cosf(angle);
     float sinAngle = sinf(angle);

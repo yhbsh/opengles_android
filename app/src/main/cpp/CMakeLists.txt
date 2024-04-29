@@ -3,7 +3,7 @@ project("engine")
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-add_library(${CMAKE_PROJECT_NAME} SHARED player.c)
+add_library(${CMAKE_PROJECT_NAME} SHARED triangle.c)
 
 find_library(LOG_LIB log)
 find_library(LIBC c)

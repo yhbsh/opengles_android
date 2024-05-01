@@ -44,7 +44,7 @@ all: launch
 
 launch: clean
 	mkdir -p $(BUILD_DIR)/lib/arm64-v8a
-	$(CC) $(CFLAGS) $(SRC_DIR)/triangle.c -o $(BUILD_DIR)/$(ENGINE_LIB) $(LDFLAGS)
+	$(CC) $(CFLAGS) $(SRC_DIR)/engine.c -o $(BUILD_DIR)/$(ENGINE_LIB) $(LDFLAGS)
 	$(STRIP) $(BUILD_DIR)/$(ENGINE_LIB)
 	$(AAPT) package -f -m -J $(BUILD_DIR) -M AndroidManifest.xml -S $(RESOURCES_DIR) -I $(ANDROID_JAR)
 	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(SRC_DIR)/*.java
@@ -58,7 +58,7 @@ launch: clean
 	$(ADB) shell am start -n "$(PACKAGE_ID)/.MainActivity"
 
 check:
-	$(CLANG_TIDY) engine.c -- $(CFLAGS)
+	$(CLANG_TIDY) $(SRC_DIR)/*.c -- $(CFLAGS)
 
 clean:
 	rm -rf $(BUILD_DIR)

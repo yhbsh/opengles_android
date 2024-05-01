@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <GLES3/gl3.h>
 #include <android/log.h>
+#include <stdlib.h>
 
 #define LOG_TAG "Native Code"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -25,6 +26,9 @@ const char *fragmentShaderSource = "#version 300 es\n"
                                   "   FragColor = texture(ourTexture, TexCoord);\n"
                                   "}\n\0";
 
+#define WIDTH 256
+#define HEIGHT 256
+static GLubyte textureData[WIDTH * HEIGHT * 3];
 GLuint shaderProgram;
 GLuint VAO;
 GLuint texture;
@@ -48,7 +52,6 @@ Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
    glDeleteShader(fragmentShader);
 
    float vertices[] = {
-       // positions         // texture coords
        -0.5f, -0.5f, 0.0f,  0.0f, 0.0f,
         0.5f, -0.5f, 0.0f,  1.0f, 0.0f,
         0.5f,  0.5f, 0.0f,  1.0f, 1.0f,
@@ -84,18 +87,15 @@ Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-   const int width = 256;
-   const int height = 256;
-   GLubyte textureData[width * height * 3];
-   for (int i = 0; i < height; i++) {
-       for (int j = 0; j < width; j++) {
-           textureData[(i * width + j) * 3 + 0] = (i / 32) * 64;
-           textureData[(i * width + j) * 3 + 1] = (j / 32) * 64;
-           textureData[(i * width + j) * 3 + 2] = 128;
+   for (int i = 0; i < HEIGHT; i++) {
+       for (int j = 0; j < WIDTH; j++) {
+           textureData[(i * WIDTH + j) * 3 + 0] = (i / 32) * 64;
+           textureData[(i * WIDTH + j) * 3 + 1] = (j / 32) * 64;
+           textureData[(i * WIDTH + j) * 3 + 2] = 128;
        }
    }
-   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+
 
    glBindTexture(GL_TEXTURE_2D, 0);
    glBindVertexArray(0);

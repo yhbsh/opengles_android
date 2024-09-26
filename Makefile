@@ -32,8 +32,10 @@ SIGNED_APK          := $(BUILD_DIR)/app.apk
 
 all: launch_apk
 
+ARCH := arm64-v8a
+
 generate_engine_lib:
-	@mkdir -p $(BUILD_DIR)/lib/$(ARCH)
+	mkdir -p $(BUILD_DIR)/lib/$(ARCH)
 	$(CC) $(ENGINE_FILES) -o $(BUILD_DIR)/lib/$(ARCH)/libengine.so -lGLESv3 -lc -lm -llog -landroid -shared -fPIC
 	$(STRIP) $(BUILD_DIR)/lib/$(ARCH)/libengine.so
 

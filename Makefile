@@ -1,7 +1,7 @@
 ANDROID_ROOT        := $(HOME)/Library/Android/sdk
 ANDROID_JAR         := $(ANDROID_ROOT)/platforms/android-34/android.jar
-ANDROID_NDK_VERSION := 26.3.11579264
-ANDROID_API_LEVEL   := 34
+ANDROID_NDK_VERSION := 21.4.7075529
+ANDROID_API_LEVEL   := 21
 BUILD_TOOLS_VERSION := 34.0.0
 JAVA_HOME           := $(shell /usr/libexec/java_home)
 
@@ -15,8 +15,8 @@ ADB                 := $(PLATFORM_TOOLS)/adb
 JAVAC               := $(JAVA_HOME)/bin/javac
 DEBUG_KEYSTORE      := $(HOME)/.gradle/debug.keystore
 
-TOOLCHAINS          := $(ANDROID_ROOT)/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64
-CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang
+TOOLCHAINS          := $(ANDROID_ROOT)/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64
+CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android21-clang
 STRIP               := $(TOOLCHAINS)/bin/llvm-strip
 
 SRC_DIR             := src

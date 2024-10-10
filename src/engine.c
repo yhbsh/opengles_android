@@ -8,34 +8,34 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 static const char *vertSource = "#version 300 es\n"
-                         "layout (location = 0) in vec3 aPos;\n"
-                         "layout (location = 1) in vec2 aTexCoord;\n"
-                         "uniform mat4 uTransform;\n"
-                         "out vec2 TexCoord;\n"
-                         "void main()\n"
-                         "{\n"
-                         "   gl_Position = uTransform * vec4(aPos, 1.0);\n"
-                         "   TexCoord = aTexCoord;\n"
-                         "}\0";
+                                "layout (location = 0) in vec3 aPos;\n"
+                                "layout (location = 1) in vec2 aTexCoord;\n"
+                                "uniform mat4 uTransform;\n"
+                                "out vec2 TexCoord;\n"
+                                "void main()\n"
+                                "{\n"
+                                "   gl_Position = uTransform * vec4(aPos, 1.0);\n"
+                                "   TexCoord = aTexCoord;\n"
+                                "}\0";
 
 static const char *fragSource = "#version 300 es\n"
-                         "precision mediump float;\n"
-                         "in vec2 TexCoord;\n"
-                         "out vec4 FragColor;\n"
-                         "uniform sampler2D ourTexture;\n"
-                         "void main()\n"
-                         "{\n"
-                         "   FragColor = texture(ourTexture, TexCoord);\n"
-                         "}\n\0";
+                                "precision mediump float;\n"
+                                "in vec2 TexCoord;\n"
+                                "out vec4 FragColor;\n"
+                                "uniform sampler2D ourTexture;\n"
+                                "void main()\n"
+                                "{\n"
+                                "   FragColor = texture(ourTexture, TexCoord);\n"
+                                "}\n\0";
 
 #define WIDTH 256
 #define HEIGHT 256
 
 static GLubyte textureData[WIDTH * HEIGHT * 3];
-static float   time = 0.0f;
-static GLuint  shaderProgram;
-static GLuint  VAO;
-static GLuint  texture;
+static float time = 0.0f;
+static GLuint shaderProgram;
+static GLuint VAO;
+static GLuint texture;
 
 JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -71,9 +71,9 @@ JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_init(JNIEnv *env, jcl
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *) 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *) (3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     glGenTextures(1, &texture);
@@ -97,12 +97,12 @@ JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_step(JNIEnv *env, jcl
 
     for (int i = 0; i < HEIGHT; i++) {
         for (int j = 0; j < WIDTH; j++) {
-            float u = (float) j / WIDTH;
-            float v = (float) i / HEIGHT;
+            float u = (float)j / WIDTH;
+            float v = (float)i / HEIGHT;
 
-            textureData[(i * WIDTH + j) * 3 + 0] = (GLubyte) ((sin(u * waveFrequency + time) + 1) * waveAmplitude);
-            textureData[(i * WIDTH + j) * 3 + 1] = (GLubyte) ((sin(v * waveFrequency + time) + 1) * waveAmplitude);
-            textureData[(i * WIDTH + j) * 3 + 2] = (GLubyte) ((sin((u + v) * waveFrequency + time) + 1) * waveAmplitude);
+            textureData[(i * WIDTH + j) * 3 + 0] = (GLubyte)((sin(u * waveFrequency + time) + 1) * waveAmplitude);
+            textureData[(i * WIDTH + j) * 3 + 1] = (GLubyte)((sin(v * waveFrequency + time) + 1) * waveAmplitude);
+            textureData[(i * WIDTH + j) * 3 + 2] = (GLubyte)((sin((u + v) * waveFrequency + time) + 1) * waveAmplitude);
         }
     }
 

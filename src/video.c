@@ -68,7 +68,7 @@ void *decode_thread(void *arg) {
     int ret;
     av_log_set_level(AV_LOG_QUIET);
 
-    if ((ret = avformat_open_input(&engine.format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", NULL, NULL)) < 0) {
+    if ((ret = avformat_open_input(&engine.format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", NULL, NULL)) < 0) {
         LOGI("[ERROR]: avformat_open_input %s", av_err2str(ret));
         exit(1);
     }

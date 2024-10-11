@@ -4,24 +4,26 @@
   "arguments": [
    "/Users/home/Library/Android/sdk/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang",
    "-I./include",
-   "./src/video.c",
+   "src/video.c",
+   "src/android_native_app_glue.c",
    "-o",
    "./build/lib/arm64-v8a/libengine.so",
    "-L./lib",
+   "-shared",
+   "-fPIC",
    "-lavformat",
    "-lavcodec",
-   "-lavdevice",
    "-lswscale",
    "-lswresample",
    "-lavutil",
    "-lGLESv3",
+   "-legl",
    "-lc",
    "-lm",
    "-llog",
    "-landroid",
-   "-shared",
-   "-fPIC"
+   "/dev/null"
   ],
-  "file": "./src/video.c"
+  "file": "src/android_native_app_glue.c"
  }
 ]

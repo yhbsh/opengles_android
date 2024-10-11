@@ -17,9 +17,10 @@ TOOLCHAINS          := $(ANDROID_ROOT)/ndk/$(ANDROID_NDK_VERSION)/toolchains/llv
 CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android$(ANDROID_API_LEVEL)-clang
 STRIP               := $(TOOLCHAINS)/bin/llvm-strip
 
+PROG                ?= audio
 ARCH                := arm64-v8a
 LIBS                := -lavformat -lavcodec -lswscale -lswresample -lavutil -lGLESv3 -legl -lopensles -lc -lm -llog -landroid
-SRCS                := src/audio.c src/android_native_app_glue.c
+SRCS                := src/$(PROG).c src/android_native_app_glue.c
 
 all: launch_apk
 

@@ -18,32 +18,34 @@ CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android$(ANDROID_API_LEVE
 STRIP               := $(TOOLCHAINS)/bin/llvm-strip
 
 ARCH                := arm64-v8a
+LIBS                := -lavformat -lavcodec -lswscale -lswresample -lavutil -lGLESv3 -legl -lc -lm -llog -landroid
+SRCS                := src/video.c src/android_native_app_glue.c
 
 all: launch_apk
 
 generate_compiled_resources:
-	mkdir -p build
-	$(AAPT2) compile -o build/compiled_resources.zip --dir resources
+	@mkdir -p build > /dev/null 2>&1
+	@$(AAPT2) compile -o build/compiled_resources.zip --dir resources > /dev/null 2>&1
 
 generate_engine_lib: generate_compiled_resources
-	mkdir -p build/lib/$(ARCH)
-	$(CC) -I./include ./src/video.c ./src/android_native_app_glue.c -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC -lavformat -lavcodec -lswscale -lswresample -lavutil -lGLESv3 -legl -lc -lm -llog -landroid
-	$(STRIP) ./build/lib/$(ARCH)/libengine.so
+	@mkdir -p build/lib/$(ARCH) > /dev/null 2>&1
+	@$(CC) -I./include $(SRCS) -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC $(LIBS) > /dev/null 2>&1
+	@$(STRIP) ./build/lib/$(ARCH)/libengine.so > /dev/null 2>&1
 
 generate_unsigned_apk: generate_engine_lib
-	$(AAPT2) link -o build/app.unsigned.apk --manifest AndroidManifest.xml -I $(ANDROID_JAR) -R build/compiled_resources.zip --auto-add-overlay --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL)
-	cd build && zip -qur app.unsigned.apk lib/
+	@$(AAPT2) link -o build/app.unsigned.apk --manifest AndroidManifest.xml -I $(ANDROID_JAR) -R build/compiled_resources.zip --auto-add-overlay --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL) > /dev/null 2>&1
+	@cd build && zip -qur app.unsigned.apk lib/ > /dev/null 2>&1
 
 generate_signed_apk: generate_unsigned_apk
-	$(APK_SIGNER) sign --ks $(DEBUG_KEYSTORE) --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out build/app.apk build/app.unsigned.apk
+	@$(APK_SIGNER) sign --ks $(DEBUG_KEYSTORE) --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out build/app.apk build/app.unsigned.apk > /dev/null 2>&1
 
 apk: generate_signed_apk
 
 install_apk: apk
-	$(ADB) install build/app.apk
+	@$(ADB) install build/app.apk > /dev/null 2>&1
 
 launch_apk: install_apk
-	$(ADB) shell am start -n "com.example.gles3/android.app.NativeActivity"
+	@$(ADB) shell am start -n "com.example.gles3/android.app.NativeActivity" > /dev/null 2>&1
 
 clean:
-	rm -rf build
+	rm -rf build > /dev/null 2>&1

@@ -31,11 +31,13 @@ static const char *fragSource = "#version 300 es\n"
 #define WIDTH 256
 #define HEIGHT 256
 
-static GLubyte textureData[WIDTH * HEIGHT * 3];
-static float time = 0.0f;
-static GLuint shaderProgram;
-static GLuint VAO;
-static GLuint texture;
+typedef struct {
+    GLubyte textureData[WIDTH * HEIGHT * 3];
+    GLuint program, VAO, texture;
+    float time;
+} Engine;
+
+Engine engine = {0};
 
 JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
     GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -46,10 +48,10 @@ JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_init(JNIEnv *env, jcl
     glShaderSource(fragmentShader, 1, &fragSource, NULL);
     glCompileShader(fragmentShader);
 
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
+    engine.program = glCreateProgram();
+    glAttachShader(engine.program, vertexShader);
+    glAttachShader(engine.program, fragmentShader);
+    glLinkProgram(engine.program);
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
@@ -58,8 +60,8 @@ JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_init(JNIEnv *env, jcl
 
     unsigned int indices[] = {0, 1, 2};
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+    glGenVertexArrays(1, &engine.VAO);
+    glBindVertexArray(engine.VAO);
 
     GLuint VBO;
     glGenBuffers(1, &VBO);
@@ -76,8 +78,8 @@ JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_init(JNIEnv *env, jcl
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    glGenTextures(1, &engine.texture);
+    glBindTexture(GL_TEXTURE_2D, engine.texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -91,37 +93,37 @@ JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_step(JNIEnv *env, jcl
     float waveSpeed     = 0.1f;
     float waveFrequency = 10.0f;
     float waveAmplitude = 128.0f;
-    float angle         = time / 5;
+    float angle         = engine.time / 5;
 
-    time += waveSpeed;
+    engine.time += waveSpeed;
 
     for (int i = 0; i < HEIGHT; i++) {
         for (int j = 0; j < WIDTH; j++) {
             float u = (float)j / WIDTH;
             float v = (float)i / HEIGHT;
 
-            textureData[(i * WIDTH + j) * 3 + 0] = (GLubyte)((sin(u * waveFrequency + time) + 1) * waveAmplitude);
-            textureData[(i * WIDTH + j) * 3 + 1] = (GLubyte)((sin(v * waveFrequency + time) + 1) * waveAmplitude);
-            textureData[(i * WIDTH + j) * 3 + 2] = (GLubyte)((sin((u + v) * waveFrequency + time) + 1) * waveAmplitude);
+            engine.textureData[(i * WIDTH + j) * 3 + 0] = (GLubyte)((sin(u * waveFrequency + engine.time) + 1) * waveAmplitude);
+            engine.textureData[(i * WIDTH + j) * 3 + 1] = (GLubyte)((sin(v * waveFrequency + engine.time) + 1) * waveAmplitude);
+            engine.textureData[(i * WIDTH + j) * 3 + 2] = (GLubyte)((sin((u + v) * waveFrequency + engine.time) + 1) * waveAmplitude);
         }
     }
 
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+    glBindTexture(GL_TEXTURE_2D, engine.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, engine.textureData);
 
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUseProgram(shaderProgram);
+    glUseProgram(engine.program);
 
     float cosAngle           = cos(angle);
     float sinAngle           = sin(angle);
     float rotationMatrix[16] = {cosAngle, -sinAngle, 0, 0, sinAngle, cosAngle, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 
-    int transformLoc = glGetUniformLocation(shaderProgram, "uTransform");
+    int transformLoc = glGetUniformLocation(engine.program, "uTransform");
     glUniformMatrix4fv(transformLoc, 1, GL_FALSE, rotationMatrix);
 
-    glBindVertexArray(VAO);
+    glBindVertexArray(engine.VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 

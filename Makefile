@@ -27,7 +27,7 @@ generate_compiled_resources:
 
 generate_engine_lib: generate_compiled_resources
 	mkdir -p build/lib/$(ARCH)
-	$(CC) -I./include ./src/engine.c ./src/android_native_app_glue.c -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC -lavformat -lavcodec -lswscale -lswresample -lavutil -lGLESv3 -legl -lc -lm -llog -landroid
+	$(CC) -I./include ./src/video.c ./src/android_native_app_glue.c -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC -lavformat -lavcodec -lswscale -lswresample -lavutil -lGLESv3 -legl -lc -lm -llog -landroid
 	$(STRIP) ./build/lib/$(ARCH)/libengine.so
 
 generate_unsigned_apk: generate_engine_lib

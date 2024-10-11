@@ -16,7 +16,7 @@
         android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
         android:windowSoftInputMode="adjustResize"
         android:exported="true"
-        android:screenOrientation="landscape">
+        android:screenOrientation="portrait">
         <meta-data
             android:name="android.app.lib_name"
             android:value="engine" />

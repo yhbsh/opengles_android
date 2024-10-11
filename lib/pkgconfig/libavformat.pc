@@ -1,0 +1,14 @@
+prefix=build/android
+exec_prefix=${prefix}
+libdir=build/android/lib
+includedir=build/android/include
+
+Name: libavformat
+Description: FFmpeg container format library
+Version: 61.9.100
+Requires: libavcodec >= 61.22.100, libswresample >= 5.4.100, libavutil >= 59.42.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavformat -lm -latomic
+Libs.private: 
+Cflags: -I${includedir}

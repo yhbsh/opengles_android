@@ -19,12 +19,11 @@ TOOLCHAINS          := $(ANDROID_ROOT)/ndk/21.4.7075529/toolchains/llvm/prebuilt
 CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android21-clang
 STRIP               := $(TOOLCHAINS)/bin/llvm-strip
 
-SRC_DIR             := src
 BUILD_DIR           := build
 RES_DIR             := resources
 MANIFEST_FILE       := AndroidManifest.xml
-JAVA_FILES          := $(SRC_DIR)/*.java
-ENGINE_FILES        ?= $(SRC_DIR)/engine.c
+JAVA_FILES          := src/MainActivity.java
+ENGINE_FILES        ?= src/video.c
 CLASS_FILES         := $(BUILD_DIR)/com/example/gles3/*.class
 COMPILED_RESOURCES  := $(BUILD_DIR)/compiled_resources.zip
 UNSIGNED_APK        := $(BUILD_DIR)/app.unsigned.apk
@@ -34,18 +33,30 @@ all: launch_apk
 
 ARCH := arm64-v8a
 
-generate_engine_lib:
-	mkdir -p $(BUILD_DIR)/lib/$(ARCH)
-	$(CC) $(ENGINE_FILES) -o $(BUILD_DIR)/lib/$(ARCH)/libengine.so -lGLESv3 -lc -lm -llog -landroid -shared -fPIC
-	$(STRIP) $(BUILD_DIR)/lib/$(ARCH)/libengine.so
-
-generate_bytecode: generate_engine_lib $(JAVA_FILES)
+generate_bytecode: $(JAVA_FILES)
 	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(JAVA_FILES)
 
 generate_compiled_resources: generate_bytecode
 	$(AAPT2) compile -o $(COMPILED_RESOURCES) --dir resources
 
-generate_unsigned_apk: generate_compiled_resources
+generate_engine_lib: generate_compiled_resources src/video.c
+	mkdir -p $(BUILD_DIR)/lib/$(ARCH)
+	$(CC) -I./include ./src/video.c -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC \
+		-lavformat \
+		-lavcodec \
+		-lavdevice \
+		-lswscale \
+		-lswresample \
+		-lavutil \
+		-lGLESv3 \
+		-lc \
+		-lm \
+		-llog \
+		-lmediandk \
+		-landroid
+	$(STRIP) ./build/lib/$(ARCH)/libengine.so
+
+generate_unsigned_apk: generate_engine_lib
 	$(AAPT2) link -o $(UNSIGNED_APK) --manifest $(MANIFEST_FILE) -I $(ANDROID_JAR) -R $(COMPILED_RESOURCES) --auto-add-overlay --java $(BUILD_DIR) --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL)
 
 generate_dex_file: generate_unsigned_apk

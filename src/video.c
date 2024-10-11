@@ -37,6 +37,7 @@ const char *fragmentShaderSource = "#version 300 es\n"
 typedef struct Engine {
     pthread_t thread;
     pthread_mutex_t lock;
+    pthread_cond_t cond;
 
     /* FFmpeg */
     AVFormatContext *format_context;
@@ -45,9 +46,6 @@ typedef struct Engine {
     AVFrame *frame;
     AVFrame *tmp_frame;
     struct SwsContext *sws_context;
-    int ffmpeg_initialized;
-
-    int next_frame;
 
     /* OpenGL */
     GLuint program, vao, texture;
@@ -65,13 +63,12 @@ void init_opengl(struct android_app *app);
 void cleanup_ffmpeg(void);
 void cleanup_opengl(void);
 
-void *ffmpeg_job(void *arg) {
+void *decode_thread(void *arg) {
     if (engine.format_context != NULL) return NULL;
     int ret;
     av_log_set_level(AV_LOG_QUIET);
 
-    if ((ret = avformat_open_input(&engine.format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", NULL, NULL)) <
-        0) {
+    if ((ret = avformat_open_input(&engine.format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", NULL, NULL)) < 0) {
         LOGI("[ERROR]: avformat_open_input %s", av_err2str(ret));
         exit(1);
     }
@@ -156,9 +153,8 @@ void *ffmpeg_job(void *arg) {
                 }
 
                 if (!engine.sws_context) {
-                    engine.sws_context =
-                        sws_getContext(engine.tmp_frame->width, engine.tmp_frame->height, engine.tmp_frame->format, engine.tmp_frame->width,
-                                       engine.tmp_frame->height, AV_PIX_FMT_RGBA, SWS_BICUBIC, NULL, NULL, NULL);
+                    engine.sws_context = sws_getContext(engine.tmp_frame->width, engine.tmp_frame->height, engine.tmp_frame->format, engine.tmp_frame->width,
+                                                        engine.tmp_frame->height, AV_PIX_FMT_RGBA, SWS_BICUBIC, NULL, NULL, NULL);
                 }
                 if ((ret = sws_scale_frame(engine.sws_context, engine.frame, engine.tmp_frame)) < 0) {
                     LOGI("[ERROR]: sws_scale_frame: %s", av_err2str(ret));
@@ -166,7 +162,7 @@ void *ffmpeg_job(void *arg) {
                 }
 
                 pthread_mutex_lock(&engine.lock);
-                engine.next_frame = 1;
+                pthread_cond_signal(&engine.cond);
                 pthread_mutex_unlock(&engine.lock);
 
                 last_pts_time = curr;
@@ -180,13 +176,9 @@ void *ffmpeg_job(void *arg) {
 }
 
 void init_ffmpeg() {
-    if (engine.ffmpeg_initialized) {
-        cleanup_ffmpeg();
-    }
-
     pthread_mutex_init(&engine.lock, NULL);
-    pthread_create(&engine.thread, NULL, ffmpeg_job, NULL);
-    engine.ffmpeg_initialized = 1;
+    pthread_cond_init(&engine.cond, NULL);
+    pthread_create(&engine.thread, NULL, decode_thread, NULL);
 }
 
 void checkCompileErrors(GLuint shader, const char *type) {
@@ -373,24 +365,25 @@ void android_main(struct android_app *app) {
                 cleanup_opengl();
                 pthread_mutex_unlock(&engine.lock);
                 pthread_mutex_destroy(&engine.lock);
+                pthread_cond_destroy(&engine.cond);
                 return;
             }
         }
 
         pthread_mutex_lock(&engine.lock);
-        if (engine.next_frame) {
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT);
-            glUseProgram(engine.program);
-            glBindVertexArray(engine.vao);
-            glBindTexture(GL_TEXTURE_2D, engine.texture);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, engine.frame->width, engine.frame->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, engine.frame->data[0]);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            glBindTexture(GL_TEXTURE_2D, 0);
-            glBindVertexArray(0);
-            eglSwapBuffers(engine.display, engine.surface);
-            engine.next_frame = 0;
-        }
+        pthread_cond_wait(&engine.cond, &engine.lock);
+
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(engine.program);
+        glBindVertexArray(engine.vao);
+        glBindTexture(GL_TEXTURE_2D, engine.texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, engine.frame->width, engine.frame->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, engine.frame->data[0]);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glBindVertexArray(0);
+        eglSwapBuffers(engine.display, engine.surface);
+
         pthread_mutex_unlock(&engine.lock);
     }
 }

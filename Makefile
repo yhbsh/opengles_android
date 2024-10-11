@@ -19,28 +19,19 @@ TOOLCHAINS          := $(ANDROID_ROOT)/ndk/21.4.7075529/toolchains/llvm/prebuilt
 CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android21-clang
 STRIP               := $(TOOLCHAINS)/bin/llvm-strip
 
-BUILD_DIR           := build
-RES_DIR             := resources
-MANIFEST_FILE       := AndroidManifest.xml
-JAVA_FILES          := src/MainActivity.java
-ENGINE_FILES        ?= src/video.c
-CLASS_FILES         := $(BUILD_DIR)/com/example/gles3/*.class
-COMPILED_RESOURCES  := $(BUILD_DIR)/compiled_resources.zip
-UNSIGNED_APK        := $(BUILD_DIR)/app.unsigned.apk
-SIGNED_APK          := $(BUILD_DIR)/app.apk
 
 all: launch_apk
 
 ARCH := arm64-v8a
 
-generate_bytecode: $(JAVA_FILES)
-	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(JAVA_FILES)
+generate_bytecode: src/MainActivity.java
+	$(JAVAC) -cp $(ANDROID_JAR):build -d build src/MainActivity.java
 
 generate_compiled_resources: generate_bytecode
-	$(AAPT2) compile -o $(COMPILED_RESOURCES) --dir resources
+	$(AAPT2) compile -o build/compiled_resources.zip --dir resources
 
-generate_engine_lib: generate_compiled_resources src/video.c
-	mkdir -p $(BUILD_DIR)/lib/$(ARCH)
+generate_engine_lib: generate_compiled_resources src/engine.c
+	mkdir -p build/lib/$(ARCH)
 	$(CC) -I./include ./src/video.c -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC \
 		-lavformat \
 		-lavcodec \
@@ -57,23 +48,23 @@ generate_engine_lib: generate_compiled_resources src/video.c
 	$(STRIP) ./build/lib/$(ARCH)/libengine.so
 
 generate_unsigned_apk: generate_engine_lib
-	$(AAPT2) link -o $(UNSIGNED_APK) --manifest $(MANIFEST_FILE) -I $(ANDROID_JAR) -R $(COMPILED_RESOURCES) --auto-add-overlay --java $(BUILD_DIR) --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL)
+	$(AAPT2) link -o build/app.unsigned.apk --manifest AndroidManifest.xml -I $(ANDROID_JAR) -R build/compiled_resources.zip --auto-add-overlay --java build --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL)
 
 generate_dex_file: generate_unsigned_apk
-	$(D8) --lib $(ANDROID_JAR) --min-api $(ANDROID_API_LEVEL) --release --output $(BUILD_DIR) $(CLASS_FILES)
-	zip -quj $(UNSIGNED_APK) $(BUILD_DIR)/classes.dex
-	cd $(BUILD_DIR) && zip -qur ../$(UNSIGNED_APK) lib/
+	$(D8) --lib $(ANDROID_JAR) --min-api $(ANDROID_API_LEVEL) --release --output build build/com/example/gles3/*.class
+	zip -quj build/app.unsigned.apk build/classes.dex
+	cd build && zip -qur app.unsigned.apk lib/
 
 generate_signed_apk: generate_dex_file
-	$(APK_SIGNER) sign --ks $(DEBUG_KEYSTORE) --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $(SIGNED_APK) $(UNSIGNED_APK)
+	$(APK_SIGNER) sign --ks $(DEBUG_KEYSTORE) --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out build/app.apk build/app.unsigned.apk
 
 apk: generate_signed_apk
 
 install_apk: apk
-	$(ADB) install $(SIGNED_APK)
+	$(ADB) install build/app.apk
 
 launch_apk: install_apk
 	$(ADB) shell am start -n "com.example.gles3/.MainActivity"
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf build

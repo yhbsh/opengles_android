@@ -23,29 +23,25 @@ SRCS                := src/video.c src/android_native_app_glue.c
 
 all: launch_apk
 
-generate_compiled_resources:
-	@mkdir -p build > /dev/null 2>&1
-	@$(AAPT2) compile -o build/compiled_resources.zip --dir resources > /dev/null 2>&1
-
-generate_engine_lib: generate_compiled_resources
-	@mkdir -p build/lib/$(ARCH) > /dev/null 2>&1
-	@$(CC) -I./include $(SRCS) -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC $(LIBS) > /dev/null 2>&1
-	@$(STRIP) ./build/lib/$(ARCH)/libengine.so > /dev/null 2>&1
+generate_engine_lib:
+	@mkdir -p build/lib/$(ARCH) > /dev/null
+	$(CC) -I./include $(SRCS) -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC $(LIBS) > /dev/null
+	@$(STRIP) ./build/lib/$(ARCH)/libengine.so > /dev/null
 
 generate_unsigned_apk: generate_engine_lib
-	@$(AAPT2) link -o build/app.unsigned.apk --manifest AndroidManifest.xml -I $(ANDROID_JAR) -R build/compiled_resources.zip --auto-add-overlay --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL) > /dev/null 2>&1
-	@cd build && zip -qur app.unsigned.apk lib/ > /dev/null 2>&1
+	$(AAPT2) link -o build/app.unsigned.apk --manifest AndroidManifest.xml -I $(ANDROID_JAR) --auto-add-overlay --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL) > /dev/null
+	@cd build && zip -qur app.unsigned.apk lib/ > /dev/null
 
 generate_signed_apk: generate_unsigned_apk
-	@$(APK_SIGNER) sign --ks $(DEBUG_KEYSTORE) --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out build/app.apk build/app.unsigned.apk > /dev/null 2>&1
+	$(APK_SIGNER) sign --ks $(DEBUG_KEYSTORE) --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out build/app.apk build/app.unsigned.apk > /dev/null
 
 apk: generate_signed_apk
 
 install_apk: apk
-	@$(ADB) install build/app.apk > /dev/null 2>&1
+	$(ADB) install build/app.apk > /dev/null
 
 launch_apk: install_apk
-	@$(ADB) shell am start -n "com.example.gles3/android.app.NativeActivity" > /dev/null 2>&1
+	@$(ADB) shell am start -n "com.example.gles3/android.app.NativeActivity" > /dev/null
 
 clean:
-	rm -rf build > /dev/null 2>&1
+	rm -rf build > /dev/null

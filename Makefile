@@ -35,7 +35,6 @@ generate_engine_lib: generate_compiled_resources src/engine.c
 	$(CC) -I./include ./src/video.c -o ./build/lib/$(ARCH)/libengine.so -L./lib -shared -fPIC \
 		-lavformat \
 		-lavcodec \
-		-lavdevice \
 		-lswscale \
 		-lswresample \
 		-lavutil \

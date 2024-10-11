@@ -1,0 +1,14 @@
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+ColumnLimit: 150
+
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: true  
+AllowShortLoopsOnASingleLine: true         
+AllowShortCaseLabelsOnASingleLine: true    
+AllowShortEnumsOnASingleLine: true         
+AllowShortLambdasOnASingleLine: All        

@@ -1,132 +1,211 @@
+#include <EGL/egl.h>
 #include <GLES3/gl3.h>
 #include <android/log.h>
-#include <jni.h>
-#include <math.h>
-#include <stdlib.h>
 
-#define LOG_TAG "OpenGL Engine"
+#include "android_native_app_glue.h"
+
+#include <math.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define LOG_TAG "Engine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
-static const char *vertSource = "#version 300 es\n"
-                                "layout (location = 0) in vec3 aPos;\n"
-                                "layout (location = 1) in vec2 aTexCoord;\n"
-                                "uniform mat4 uTransform;\n"
-                                "out vec2 TexCoord;\n"
-                                "void main()\n"
-                                "{\n"
-                                "   gl_Position = uTransform * vec4(aPos, 1.0);\n"
-                                "   TexCoord = aTexCoord;\n"
-                                "}\0";
-
-static const char *fragSource = "#version 300 es\n"
-                                "precision mediump float;\n"
-                                "in vec2 TexCoord;\n"
-                                "out vec4 FragColor;\n"
-                                "uniform sampler2D ourTexture;\n"
-                                "void main()\n"
-                                "{\n"
-                                "   FragColor = texture(ourTexture, TexCoord);\n"
-                                "}\n\0";
-
-#define WIDTH 256
-#define HEIGHT 256
-
 typedef struct {
-    GLubyte textureData[WIDTH * HEIGHT * 3];
-    GLuint program, VAO, texture;
-    float time;
+    /* OpenGL */
+    GLuint prog, VAO, texture;
+
+    /* EGL */
+    EGLDisplay display;
+    EGLSurface surface;
+    EGLContext context;
+
 } Engine;
 
 Engine engine = {0};
 
-JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertSource, NULL);
-    glCompileShader(vertexShader);
+void checkCompileErrors(GLuint shader, const char *type) {
+    GLint success;
+    GLchar infoLog[1024];
+    if (strcmp(type, "PROGRAM") != 0) {
+        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+        if (!success) {
+            glGetShaderInfoLog(shader, 1024, NULL, infoLog);
+            LOGI("ERROR::SHADER_COMPILATION_ERROR of type: %s%s", type, infoLog);
+        }
+    } else {
+        glGetProgramiv(shader, GL_LINK_STATUS, &success);
+        if (!success) {
+            glGetProgramInfoLog(shader, 1024, NULL, infoLog);
+            LOGI("ERROR::PROGRAM_LINKING_ERROR of type: %s%s", type, infoLog);
+        }
+    }
+}
 
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragSource, NULL);
-    glCompileShader(fragmentShader);
+void init_opengl(struct android_app *app) {
+    ANativeWindow *window = app->window;
 
-    engine.program = glCreateProgram();
-    glAttachShader(engine.program, vertexShader);
-    glAttachShader(engine.program, fragmentShader);
-    glLinkProgram(engine.program);
+    engine.display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (engine.display == EGL_NO_DISPLAY) {
+        LOGI("[ERROR]: cannot get egl display");
+        exit(1);
+    }
 
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    if (!eglInitialize(engine.display, NULL, NULL)) {
+        LOGI("[ERROR]: cannot initialize egl");
+        exit(1);
+    }
 
-    float vertices[] = {-0.5f, -0.5f, 0.0f, 0.0f, 0.0f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.5f, 0.0f, 0.5f, 1.0f};
+    const EGLint configAttribs[] = {
+        // clang-format off
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+        EGL_RED_SIZE, 8,
+        EGL_GREEN_SIZE, 8,
+        EGL_BLUE_SIZE, 8,
+        EGL_ALPHA_SIZE, 8,
+        EGL_DEPTH_SIZE, 16,
+        EGL_STENCIL_SIZE, 8,
+        EGL_NONE,
+        // clang-format on
+    };
 
-    unsigned int indices[] = {0, 1, 2};
+    EGLConfig config;
+    EGLint configsNum;
+    if (!eglChooseConfig(engine.display, configAttribs, &config, 1, &configsNum)) {
+        LOGI("[ERROR]: cannot chose egl config");
+        exit(1);
+    }
 
-    glGenVertexArrays(1, &engine.VAO);
-    glBindVertexArray(engine.VAO);
+    const EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
+
+    engine.context = eglCreateContext(engine.display, config, EGL_NO_CONTEXT, contextAttribs);
+    if (engine.context == EGL_NO_CONTEXT) {
+        LOGI("[ERROR]: cannot create egl context");
+        exit(1);
+    }
+
+    engine.surface = eglCreateWindowSurface(engine.display, config, window, NULL);
+    if (engine.surface == EGL_NO_SURFACE) {
+        LOGI("[ERROR]: cannot create egl window surface");
+        exit(1);
+    }
+
+    if (!eglMakeCurrent(engine.display, engine.surface, engine.surface, engine.context)) {
+        LOGI("[ERROR]: cannot make egl context current");
+        exit(1);
+    }
+    const char *vsrc = "#version 300 es                                  \n"
+                       "layout(location = 0) in vec4 vPosition;          \n"
+                       "uniform mat4 uRotationMatrix;                    \n"
+                       "void main()                                      \n"
+                       "{                                                \n"
+                       "   gl_Position = uRotationMatrix * vPosition;    \n"
+                       "}                                                \n";
+
+    const char *fsrc = "#version 300 es                              \n"
+                       "precision mediump float;                     \n"
+                       "out vec4 fragColor;                          \n"
+                       "void main()                                  \n"
+                       "{                                            \n"
+                       "   fragColor = vec4 (1.0, 0.2, 0.2, 1.0);    \n"
+                       "}                                            \n";
+
+    GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vs, 1, &vsrc, NULL);
+    glCompileShader(vs);
+
+    GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fs, 1, &fsrc, NULL);
+    glCompileShader(fs);
+
+    engine.prog = glCreateProgram();
+    glAttachShader(engine.prog, vs);
+    glAttachShader(engine.prog, fs);
+    glLinkProgram(engine.prog);
+
+    glDeleteShader(vs);
+    glDeleteShader(fs);
 
     GLuint VBO;
+    float vertices[] = {-0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f};
+    glGenVertexArrays(1, &engine.VAO);
     glGenBuffers(1, &VBO);
+
+    glBindVertexArray(engine.VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    GLuint EBO;
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
 
-    glGenTextures(1, &engine.texture);
-    glBindTexture(GL_TEXTURE_2D, engine.texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 }
 
-JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_step(JNIEnv *env, jclass clazz) {
-    float waveSpeed     = 0.1f;
-    float waveFrequency = 10.0f;
-    float waveAmplitude = 128.0f;
-    float angle         = engine.time / 5;
-
-    engine.time += waveSpeed;
-
-    for (int i = 0; i < HEIGHT; i++) {
-        for (int j = 0; j < WIDTH; j++) {
-            float u = (float)j / WIDTH;
-            float v = (float)i / HEIGHT;
-
-            engine.textureData[(i * WIDTH + j) * 3 + 0] = (GLubyte)((sin(u * waveFrequency + engine.time) + 1) * waveAmplitude);
-            engine.textureData[(i * WIDTH + j) * 3 + 1] = (GLubyte)((sin(v * waveFrequency + engine.time) + 1) * waveAmplitude);
-            engine.textureData[(i * WIDTH + j) * 3 + 2] = (GLubyte)((sin((u + v) * waveFrequency + engine.time) + 1) * waveAmplitude);
-        }
+void cleanup_opengl(void) {
+    if (engine.display != EGL_NO_DISPLAY) {
+        eglMakeCurrent(engine.display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+        if (engine.context != EGL_NO_CONTEXT) eglDestroyContext(engine.display, engine.context);
+        if (engine.surface != EGL_NO_SURFACE) eglDestroySurface(engine.display, engine.surface);
+        eglTerminate(engine.display);
     }
-
-    glBindTexture(GL_TEXTURE_2D, engine.texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, WIDTH, HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, engine.textureData);
-
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    glUseProgram(engine.program);
-
-    float cosAngle           = cos(angle);
-    float sinAngle           = sin(angle);
-    float rotationMatrix[16] = {cosAngle, -sinAngle, 0, 0, sinAngle, cosAngle, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
-
-    int transformLoc = glGetUniformLocation(engine.program, "uTransform");
-    glUniformMatrix4fv(transformLoc, 1, GL_FALSE, rotationMatrix);
-
-    glBindVertexArray(engine.VAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    engine.display = EGL_NO_DISPLAY;
+    engine.context = EGL_NO_CONTEXT;
+    engine.surface = EGL_NO_SURFACE;
 }
 
-JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_resize(JNIEnv *env, jclass clazz, jint width, jint height) {
-    glViewport(0, 0, width, height);
+void handle_cmd(struct android_app *app, int32_t cmd) {
+    switch (cmd) {
+    case APP_CMD_INIT_WINDOW:
+        if (app->window != NULL) init_opengl(app);
+        break;
+    case APP_CMD_TERM_WINDOW: {
+        cleanup_opengl();
+        break;
+    }
+    case APP_CMD_DESTROY:
+        cleanup_opengl();
+        exit(0);
+        break;
+    }
+}
+
+void android_main(struct android_app *app) {
+    app->onAppCmd = handle_cmd;
+
+    int events;
+    struct android_poll_source *source;
+    struct timespec now;
+
+    while (1) {
+        while (ALooper_pollAll(0, NULL, &events, (void **)&source) >= 0) {
+            if (source != NULL) {
+                source->process(app, source);
+            }
+
+            if (app->destroyRequested != 0) {
+                cleanup_opengl();
+                return;
+            }
+        }
+
+        static float angle = 0.0f;
+        angle += 0.02f;
+
+        float cosAngle = cosf(angle);
+        float sinAngle = sinf(angle);
+        GLfloat rotationMatrix[] = {cosAngle, -sinAngle, 0.0, 0.0, sinAngle, cosAngle, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
+        GLuint rotationLoc = glGetUniformLocation(engine.prog, "uRotationMatrix");
+
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(engine.prog);
+        glUniformMatrix4fv(rotationLoc, 1, GL_FALSE, rotationMatrix);
+        glBindVertexArray(engine.VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+
+        eglSwapBuffers(engine.display, engine.surface);
+    }
 }

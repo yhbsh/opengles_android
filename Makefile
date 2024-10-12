@@ -1,5 +1,4 @@
 ANDROID_ROOT        := $(HOME)/Library/Android/sdk
-ANDROID_JAR         := $(ANDROID_ROOT)/platforms/android-34/android.jar
 ANDROID_NDK_VERSION := 21.4.7075529
 ANDROID_API_LEVEL   := 21
 BUILD_TOOLS_VERSION := 34.0.0
@@ -30,7 +29,7 @@ generate_engine_lib:
 	@$(STRIP) ./build/lib/$(ARCH)/libengine.so > /dev/null
 
 generate_unsigned_apk: generate_engine_lib
-	$(AAPT2) link -o build/app.unsigned.apk --manifest AndroidManifest.xml -I $(ANDROID_JAR) --auto-add-overlay --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL) > /dev/null
+	$(AAPT2) link -o build/app.unsigned.apk --manifest AndroidManifest.xml --auto-add-overlay --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL) > /dev/null
 	@cd build && zip -qur app.unsigned.apk lib/ > /dev/null
 
 generate_signed_apk: generate_unsigned_apk

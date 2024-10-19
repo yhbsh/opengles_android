@@ -3,7 +3,6 @@ ANDROID_JAR         := $(ANDROID_ROOT)/platforms/android-34/android.jar
 ANDROID_NDK_VERSION := 21.4.7075529
 ANDROID_API_LEVEL   := 21
 BUILD_TOOLS_VERSION := 34.0.0
-JAVA_HOME           := $(shell /usr/libexec/java_home)
 
 BUILD_TOOLS         := $(ANDROID_ROOT)/build-tools/$(BUILD_TOOLS_VERSION)
 PLATFORM_TOOLS      := $(ANDROID_ROOT)/platform-tools

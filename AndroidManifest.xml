@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.gles3">
-    <uses-sdk
-        android:minSdkVersion="30"
-        android:targetSdkVersion="34" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.gles3">
+
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="34" />
 
     <application
         android:icon="@mipmap/ic_launcher"
@@ -23,5 +21,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
     </application>
 </manifest>

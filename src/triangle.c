@@ -1,8 +1,8 @@
 #include <jni.h>
 
-#include <jni.h>
 #include <GLES3/gl3.h>
 #include <android/log.h>
+#include <jni.h>
 #include <math.h>
 
 #define LOG_TAG "Native Code"
@@ -12,25 +12,22 @@ GLuint prog;
 GLuint VAO;
 GLuint VBO;
 
-JNIEXPORT void JNICALL
-Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
-    const char *vsrc =
-            "#version 300 es                                  \n"
-            "layout(location = 0) in vec4 vPosition;          \n"
-            "uniform mat4 uRotationMatrix;                    \n"
-            "void main()                                      \n"
-            "{                                                \n"
-            "   gl_Position = uRotationMatrix * vPosition;    \n"
-            "}                                                \n";
+JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
+    const char *vsrc = "#version 300 es                                  \n"
+                       "layout(location = 0) in vec4 vPosition;          \n"
+                       "uniform mat4 uRotationMatrix;                    \n"
+                       "void main()                                      \n"
+                       "{                                                \n"
+                       "   gl_Position = uRotationMatrix * vPosition;    \n"
+                       "}                                                \n";
 
-    const char *fsrc =
-            "#version 300 es                              \n"
-            "precision mediump float;                     \n"
-            "out vec4 fragColor;                          \n"
-            "void main()                                  \n"
-            "{                                            \n"
-            "   fragColor = vec4 (1.0, 0.2, 0.2, 1.0);    \n"
-            "}                                            \n";
+    const char *fsrc = "#version 300 es                              \n"
+                       "precision mediump float;                     \n"
+                       "out vec4 fragColor;                          \n"
+                       "void main()                                  \n"
+                       "{                                            \n"
+                       "   fragColor = vec4 (1.0, 0.2, 0.2, 1.0);    \n"
+                       "}                                            \n";
 
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vsrc, NULL);
@@ -48,11 +45,7 @@ Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
     glDeleteShader(vs);
     glDeleteShader(fs);
 
-    float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f
-    };
+    float vertices[] = {-0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f};
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
@@ -67,8 +60,7 @@ Java_com_example_gles3_MainActivity_init(JNIEnv *env, jclass clazz) {
     glBindVertexArray(0);
 }
 
-JNIEXPORT void JNICALL
-Java_com_example_gles3_MainActivity_step(JNIEnv *env, jclass clazz) {
+JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_step(JNIEnv *env, jclass clazz) {
 
     static float angle = 0.0f;
     angle += 0.02f;
@@ -76,12 +68,7 @@ Java_com_example_gles3_MainActivity_step(JNIEnv *env, jclass clazz) {
     float cosAngle = cosf(angle);
     float sinAngle = sinf(angle);
 
-    GLfloat rotationMatrix[] = {
-            cosAngle, -sinAngle, 0.0, 0.0,
-            sinAngle, cosAngle, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0
-    };
+    GLfloat rotationMatrix[] = {cosAngle, -sinAngle, 0.0, 0.0, sinAngle, cosAngle, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
 
     GLuint rotationLoc = glGetUniformLocation(prog, "uRotationMatrix");
 
@@ -94,7 +81,6 @@ Java_com_example_gles3_MainActivity_step(JNIEnv *env, jclass clazz) {
     glBindVertexArray(0);
 }
 
-JNIEXPORT void JNICALL
-Java_com_example_gles3_MainActivity_resize(JNIEnv *env, jclass clazz, jint width, jint height) {
+JNIEXPORT void JNICALL Java_com_example_gles3_MainActivity_resize(JNIEnv *env, jclass clazz, jint width, jint height) {
     glViewport(0, 0, width, height);
 }

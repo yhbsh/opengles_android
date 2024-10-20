@@ -25,6 +25,7 @@ engine:
 		-lGLESv2 \
 		-legl \
 		-lc \
+		-lm \
 		-llog \
 		-landroid
 

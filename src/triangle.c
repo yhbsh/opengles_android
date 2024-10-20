@@ -22,6 +22,7 @@
 
 typedef struct {
     ANativeWindow *window;
+    AInputQueue *input;
 
     /* EGL */
     void *egl_display;
@@ -142,13 +143,51 @@ void *run_main(void *arg) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    while (app.running) {
-        static float angle = 0.0f;
-        angle += 0.02f;
+    float previousX = 0.0f;
+    float rotationAngle = 0.0f;
 
-        float cosAngle = cosf(angle);
-        float sinAngle = sinf(angle);
+    while (app.running) {
+        AInputEvent *event = NULL;
+
+        while (AInputQueue_hasEvents(app.input) > 0) {
+            if (AInputQueue_getEvent(app.input, &event) >= 0) {
+                if (AInputQueue_preDispatchEvent(app.input, event)) {
+                    continue;
+                }
+
+                int32_t eventType = AInputEvent_getType(event);
+                switch (eventType) {
+                case AINPUT_EVENT_TYPE_MOTION:
+                    if (AMotionEvent_getPointerCount(event) == 1) {
+                        int32_t action = AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
+                        float x = AMotionEvent_getX(event, 0);
+                        float y = AMotionEvent_getY(event, 0);
+
+                        if (action == AMOTION_EVENT_ACTION_DOWN) {
+                            previousX = x;
+                        } else if (action == AMOTION_EVENT_ACTION_MOVE) {
+                            float deltaX = x - previousX;
+
+                            float rotationSpeed = 0.01f;
+                            rotationAngle += deltaX * rotationSpeed;
+                            previousX = x;
+                        }
+
+                        LOGI("Motion event: x=%f, y=%f", x, y);
+                    }
+                    break;
+
+                default: LOGI("Unknown input event type: %d", eventType); break;
+                }
+
+                AInputQueue_finishEvent(app.input, event, 1);
+            }
+        }
+
+        float cosAngle = cosf(rotationAngle);
+        float sinAngle = sinf(rotationAngle);
         GLfloat rotationMatrix[] = {cosAngle, -sinAngle, 0.0, 0.0, sinAngle, cosAngle, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0};
+
         GLuint rotationLoc = glGetUniformLocation(app.program, "uRotationMatrix");
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -213,11 +252,27 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     app.window = NULL;
 }
 
+void onInputQueueCreated(ANativeActivity *activity, AInputQueue *queue) {
+    (void)activity;
+
+    app.input = queue;
+}
+
+void onInputQueueDestroyed(ANativeActivity *activity, AInputQueue *queue) {
+    (void)activity;
+
+    if (app.input == queue) {
+        app.input = NULL;
+    }
+}
+
 JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedState, size_t savedStateSize) {
     (void)savedState;
     (void)savedStateSize;
 
     activity->callbacks->onNativeWindowCreated = onNativeWindowCreated;
     activity->callbacks->onNativeWindowDestroyed = onNativeWindowDestroyed;
+    activity->callbacks->onInputQueueCreated = onInputQueueCreated;
+    activity->callbacks->onInputQueueDestroyed = onInputQueueDestroyed;
     activity->instance = NULL;
 }

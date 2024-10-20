@@ -20,8 +20,6 @@
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
 #define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "Engine", __VA_ARGS__))
 
-pthread_t thread;
-
 typedef struct {
     ANativeWindow *window;
 
@@ -31,6 +29,7 @@ typedef struct {
     void *egl_config;
 
     bool running;
+    pthread_t thread;
 } AndroidApp;
 
 AndroidApp app = {0};
@@ -141,7 +140,7 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
         return;
     }
 
-    pthread_create(&thread, NULL, run_main, NULL);
+    pthread_create(&app.thread, NULL, run_main, NULL);
 }
 
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
@@ -150,7 +149,7 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     LOGI("onNativeWindowDestroyed");
 
     app.running = false;
-    pthread_join(thread, NULL);
+    pthread_join(app.thread, NULL);
 
     // Unbind EGL context and surface
     if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {

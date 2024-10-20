@@ -1,3 +1,4 @@
+ARCHS               := arm64-v8a armeabi-v7a x86 x86_64
 ANDROID_ROOT        := $(HOME)/Library/Android/sdk
 ANDROID_JAR         := $(ANDROID_ROOT)/platforms/android-34/android.jar
 ANDROID_NDK_VERSION := 26.3.11579264
@@ -16,6 +17,15 @@ JAVAC               := $(JAVA_HOME)/bin/javac
 DEBUG_KEYSTORE      := $(HOME)/.gradle/debug.keystore
 
 TOOLCHAINS          := $(ANDROID_ROOT)/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64
+ifeq ($(ARCH),arm64-v8a)
+    TARGET_ARCH     := aarch64-linux-android$(ANDROID_API_LEVEL)
+else ifeq ($(ARCH),armeabi-v7a)
+    TARGET_ARCH     := armv7a-linux-androideabi$(ANDROID_API_LEVEL)
+else ifeq ($(ARCH),x86)
+    TARGET_ARCH     := i686-linux-android$(ANDROID_API_LEVEL)
+else ifeq ($(ARCH),x86_64)
+    TARGET_ARCH     := x86_64-linux-android$(ANDROID_API_LEVEL)
+endif
 CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang
 CXX                 := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang++
 STRIP               := $(TOOLCHAINS)/bin/llvm-strip
@@ -33,10 +43,15 @@ SIGNED_APK          := $(BUILD_DIR)/app.apk
 
 all: launch_apk
 
-generate_engine_lib: $(ENGINE_FILES)
-	mkdir -p $(BUILD_DIR)/lib/arm64-v8a
-	$(CC) -o $(BUILD_DIR)/lib/arm64-v8a/libengine.so $(ENGINE_FILES) -lGLESv3 -lc -lm -llog -landroid -shared -fPIC
-	$(STRIP) $(BUILD_DIR)/lib/arm64-v8a/libengine.so
+generate_engine_lib:
+	@$(foreach arch,$(ARCHS),$(MAKE) single_lib ARCH=$(arch) ANDROID_API_LEVEL=$(ANDROID_API_LEVEL);)
+
+single_lib:
+	@mkdir -p $(BUILD_DIR)/lib/$(ARCH)
+	CC=$(TOOLCHAINS)/bin/$(ARCH)-linux-android$(ANDROID_API_LEVEL)-clang
+	STRIP=$(TOOLCHAINS)/bin/llvm-strip
+	$(CC) $(ENGINE_FILES) -o $(BUILD_DIR)/lib/$(ARCH)/libengine.so -lGLESv3 -lc -lm -llog -landroid -shared -fPIC
+	$(STRIP) $(BUILD_DIR)/lib/$(ARCH)/libengine.so
 
 generate_bytecode: generate_engine_lib $(JAVA_FILES)
 	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(JAVA_FILES)

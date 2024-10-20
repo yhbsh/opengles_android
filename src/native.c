@@ -3,6 +3,8 @@
 #include <GLES/egl.h>
 #include <GLES/gl.h>
 
+#include <aaudio/AAudio.h>
+
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 
@@ -130,17 +132,6 @@ void *render_task(void *arg) {
     return NULL;
 }
 
-void data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount) {
-    ma_decoder *pDecoder = (ma_decoder *)pDevice->pUserData;
-    if (pDecoder == NULL) {
-        return;
-    }
-
-    ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount, NULL);
-
-    (void)pInput;
-}
-
 void *audio_playback_task(void *arg) {
     (void)arg;
 
@@ -152,52 +143,77 @@ void *audio_playback_task(void *arg) {
     }
 
     int64_t size = AAsset_getLength(asset);
-    void *data = malloc(size);
+    uint8_t *buffer = (uint8_t *)malloc(size);
 
-    if (AAsset_read(asset, data, size) < 0) {
+    if (AAsset_read(asset, buffer, size) < 0) {
         LOGE("cannot read file.wav");
         exit(0);
     }
 
     ma_result ret;
-
-    ma_event event;
     ma_decoder decoder;
     ma_decoder_config config = ma_decoder_config_init(ma_format_f32, 2, 44100);
 
-    if ((ret = ma_decoder_init_memory(data, size, &config, &decoder)) != MA_SUCCESS) {
+    if ((ret = ma_decoder_init_memory(buffer, size, &config, &decoder)) != MA_SUCCESS) {
         LOGE("cannot initialize decoder %s", ma_result_description(ret));
-        free(data);
+        free(buffer);
         AAsset_close(asset);
         exit(0);
     }
 
-    ma_device_config device_config = ma_device_config_init(ma_device_type_playback);
-    device_config.playback.format = decoder.outputFormat;
-    device_config.playback.channels = decoder.outputChannels;
-    device_config.sampleRate = decoder.outputSampleRate;
-    device_config.dataCallback = data_callback;
-    device_config.pUserData = &decoder;
-
-    ma_device device;
-    if ((ret = ma_device_init(NULL, &device_config, &device)) != MA_SUCCESS) {
-        LOGE("cannot initialize playback device %s", ma_result_description(ret));
-        ma_decoder_uninit(&decoder);
-        free(data);
-        AAsset_close(asset);
+    AAudioStream *stream = NULL;
+    AAudioStreamBuilder *builder;
+    aaudio_result_t result = AAudio_createStreamBuilder(&builder);
+    if (result != AAUDIO_OK) {
+        LOGE("cannot create stream builder: %s", AAudio_convertResultToText(result));
         exit(0);
     }
 
-    if ((ret = ma_device_start(&device)) != MA_SUCCESS) {
-        LOGE("cannot start playback %s", ma_result_description(ret));
+    AAudioStreamBuilder_setFormat(builder, AAUDIO_FORMAT_PCM_FLOAT);
+    AAudioStreamBuilder_setChannelCount(builder, 2);
+    AAudioStreamBuilder_setSampleRate(builder, 44100);
+
+    result = AAudioStreamBuilder_openStream(builder, &stream);
+    if (result != AAUDIO_OK) {
+        LOGE("cannot open stream: %s", AAudio_convertResultToText(result));
+        AAudioStreamBuilder_delete(builder);
         exit(0);
     }
 
-    ma_event_wait(&event);
+    result = AAudioStream_requestStart(stream);
+    if (result != AAUDIO_OK) {
+        LOGE("cannot start stream: %s", AAudio_convertResultToText(result));
+        AAudioStream_close(stream);
+        AAudioStreamBuilder_delete(builder);
+        exit(0);
+    }
 
-    ma_device_uninit(&device);
+    float audio_buffer[1024 * 2];
+    ma_uint64 frames_read;
+
+    while (app.is_playing_audio) {
+        ret = ma_decoder_read_pcm_frames(&decoder, audio_buffer, 1024, &frames_read);
+        if (ret == MA_AT_END) {
+            break;
+        }
+
+        if (ret != MA_SUCCESS) {
+            LOGE("cannot read PCM frames: %s", ma_result_description(ret));
+            break;
+        }
+
+        result = AAudioStream_write(stream, audio_buffer, frames_read, INT64_MAX);
+        if (result < 0) {
+            LOGE("cannot write stream: %s", AAudio_convertResultToText(result));
+            break;
+        }
+    }
+
+    AAudioStream_requestStop(stream);
+    AAudioStream_close(stream);
+    AAudioStreamBuilder_delete(builder);
     ma_decoder_uninit(&decoder);
-    free(data);
+    free(buffer);
     AAsset_close(asset);
 
     return NULL;

@@ -7,7 +7,7 @@ CC      = $(NDK)/bin/aarch64-linux-android21-clang
 STRIP   = $(NDK)/bin/llvm-strip
 FLAGS   = -I.deps/include -Wall -Wextra
 PROG    = native
-LIBS    = -L.deps/lib -lGLESv3 -legl -lc -lm -llog -landroid -lavformat -lavcodec -lswscale -lswresample -lavutil
+LIBS    = -L.deps/lib -L$(NDK)/sysroot/usr/lib/aarch64-linux-android/30 -laaudio -lGLESv3 -legl -lc -lm -llog -landroid -lavformat -lavcodec -lswscale -lswresample -lavutil
 
 all: launch
 apk: package

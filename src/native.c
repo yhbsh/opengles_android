@@ -50,19 +50,16 @@ void *render_loop(void *arg) {
     float dt = 0.0f;
 
     while (isRendering) {
-        // Use sine waves to smoothly transition the background color
-        float red = (sinf(dt) * 0.5f) + 0.5f;             // Range [0, 1]
-        float green = (cosf(dt) * 0.5f) + 0.5f;           // Range [0, 1]
-        float blue = (sinf(dt + 3.14159f) * 0.5f) + 0.5f; // Range [0, 1]
+        float r = (sinf(dt + 0) * 0.5f) + 0.5f;
+        float g = (cosf(dt + 0) * 0.5f) + 0.5f;
+        float b = (sinf(dt + 3) * 0.5f) + 0.5f;
 
-        // Set the background color using these smoothly changing values
-        glClearColor(red, green, blue, 1.0f);
+        glClearColor(r, g, b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         eglSwapBuffers(display, surface);
-        usleep(8000); // ~60 FPS
+        usleep(8000);
 
-        // Increment time
         dt += 0.01f;
     }
 

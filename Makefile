@@ -1,4 +1,3 @@
-# Configuration and paths
 ANDROID_ROOT        := $(HOME)/Library/Android/sdk
 ANDROID_JAR         := $(ANDROID_ROOT)/platforms/android-34/android.jar
 ANDROID_NDK_VERSION := 26.3.11579264
@@ -6,60 +5,63 @@ ANDROID_API_LEVEL   := 34
 BUILD_TOOLS_VERSION := 34.0.0
 JAVA_HOME           := $(shell /usr/libexec/java_home)
 
-# Tool definitions
 BUILD_TOOLS         := $(ANDROID_ROOT)/build-tools/$(BUILD_TOOLS_VERSION)
 PLATFORM_TOOLS      := $(ANDROID_ROOT)/platform-tools
 D8                  := $(BUILD_TOOLS)/d8
-AAPT                := $(BUILD_TOOLS)/aapt
+AAPT2               := $(BUILD_TOOLS)/aapt2
 ZIP_ALIGN           := $(BUILD_TOOLS)/zipalign
 APK_SIGNER          := $(BUILD_TOOLS)/apksigner
 ADB                 := $(PLATFORM_TOOLS)/adb
 JAVAC               := $(JAVA_HOME)/bin/javac
 DEBUG_KEYSTORE      := $(HOME)/.gradle/debug.keystore
 
-# Project-specific settings
+TOOLCHAINS          := $(ANDROID_ROOT)/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64
+CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang
+CXX                 := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang++
+STRIP               := $(TOOLCHAINS)/bin/llvm-strip
+
 SRC_DIR             := src
 BUILD_DIR           := build
 RES_DIR             := resources
-PACKAGE_NAME        := com/example/gles3
-PACKAGE_ID          := com.example.gles3
 MANIFEST_FILE       := AndroidManifest.xml
-ENGINE_SRC          := $(SRC_DIR)/triangle_uv.c
-ENGINE_LIB          := $(BUILD_DIR)/lib/arm64-v8a/libengine.so
+JAVA_FILES          := $(SRC_DIR)/MainActivity.java
+ENGINE_FILES        := $(SRC_DIR)/engine.c
+CLASS_FILES         := $(BUILD_DIR)/com/example/gles3/*.class
+COMPILED_RESOURCES  := $(BUILD_DIR)/compiled_resources.zip
 UNSIGNED_APK        := $(BUILD_DIR)/app.unsigned.apk
-UNALIGNED_APK       := $(BUILD_DIR)/app.unaligned.apk
 SIGNED_APK          := $(BUILD_DIR)/app.apk
 
-# NDK and compiler settings
-TOOLCHAIN           := $(ANDROID_ROOT)/ndk/$(ANDROID_NDK_VERSION)/toolchains/llvm/prebuilt/darwin-x86_64
-ARCH                := aarch64-linux-android
-CC                  := $(TOOLCHAIN)/bin/$(ARCH)$(ANDROID_API_LEVEL)-clang
-STRIP               := $(TOOLCHAIN)/bin/llvm-strip
+all: launch_apk
 
-# Compilation flags
-CFLAGS              := -fPIC
-LDFLAGS             := -lGLESv3 -llog -lm -shared
+generate_engine_lib: $(ENGINE_FILES)
+	mkdir -p $(BUILD_DIR)/lib/arm64-v8a
+	$(CC) -o $(BUILD_DIR)/lib/arm64-v8a/libengine.so $(ENGINE_FILES) -lGLESv3 -lc -lm -llog -landroid -shared -fPIC
+	$(STRIP) $(BUILD_DIR)/lib/arm64-v8a/libengine.so
 
-.PHONY: all apk engine launch clean
+generate_bytecode: generate_engine_lib $(JAVA_FILES)
+	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(JAVA_FILES)
 
-all: clean engine apk
+generate_compiled_resources: generate_bytecode
+	$(AAPT2) compile -o $(COMPILED_RESOURCES) --dir resources
 
-apk:
-	$(AAPT) package -f -m -J $(BUILD_DIR) -M $(MANIFEST_FILE) -S $(RES_DIR) -I $(ANDROID_JAR)
-	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(SRC_DIR)/MainActivity.java
-	$(D8) --lib $(ANDROID_JAR) --min-api $(ANDROID_API_LEVEL) --release --output $(BUILD_DIR) $(BUILD_DIR)/com/example/gles3/*.class
-	$(AAPT) package -f -M $(MANIFEST_FILE) -S $(RES_DIR) -I $(ANDROID_JAR) -F $(UNALIGNED_APK) $(BUILD_DIR)
-	$(ZIP_ALIGN) -v 4 $(UNALIGNED_APK) $(UNSIGNED_APK)
+generate_unsigned_apk: generate_compiled_resources
+	$(AAPT2) link -o $(UNSIGNED_APK) --manifest $(MANIFEST_FILE) -I $(ANDROID_JAR) -R $(COMPILED_RESOURCES) --auto-add-overlay --java $(BUILD_DIR) --min-sdk-version $(ANDROID_API_LEVEL) --target-sdk-version $(ANDROID_API_LEVEL)
+
+generate_dex_file: generate_unsigned_apk
+	$(D8) --lib $(ANDROID_JAR) --min-api $(ANDROID_API_LEVEL) --release --output $(BUILD_DIR) $(CLASS_FILES)
+	zip -quj $(UNSIGNED_APK) $(BUILD_DIR)/classes.dex
+	cd $(BUILD_DIR) && zip -qur ../$(UNSIGNED_APK) lib/
+
+generate_signed_apk: generate_dex_file
 	$(APK_SIGNER) sign --ks $(DEBUG_KEYSTORE) --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $(SIGNED_APK) $(UNSIGNED_APK)
 
-engine: $(ENGINE_SRC)
-	mkdir -p $(BUILD_DIR)/lib/arm64-v8a
-	$(CC) $(CFLAGS) $(ENGINE_SRC) -o $(ENGINE_LIB) $(LDFLAGS)
-	$(STRIP) $(ENGINE_LIB)
+apk: generate_signed_apk
 
-launch: all
+install_apk: apk
 	$(ADB) install $(SIGNED_APK)
-	$(ADB) shell am start -n "$(PACKAGE_ID)/.MainActivity"
+
+launch_apk: install_apk
+	$(ADB) shell am start -n "com.example.gles3/.MainActivity"
 
 clean:
 	rm -rf $(BUILD_DIR)

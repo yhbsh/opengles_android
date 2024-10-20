@@ -1,7 +1,7 @@
 ANDROID_ROOT := $(HOME)/Library/Android/sdk
 ANDROID_JAR := $(ANDROID_ROOT)/platforms/android-34/android.jar
 ANDROID_NDK_VERSION := 26.3.11579264
-ANDROID_API_LEVEL := 24
+ANDROID_API_LEVEL := 30
 
 JAVA_VERSION := 17
 JAVA_HOME := $(shell /usr/libexec/java_home -v $(JAVA_VERSION))

@@ -3,7 +3,7 @@
     package="com.example.gles3">
 
     <uses-sdk
-        android:minSdkVersion="24"
+        android:minSdkVersion="30"
         android:targetSdkVersion="34" />
 
     <application

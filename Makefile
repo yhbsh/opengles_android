@@ -47,7 +47,7 @@ launch: clean
 	$(CC) $(CFLAGS) $(SRC_DIR)/engine.c -o $(BUILD_DIR)/$(ENGINE_LIB) $(LDFLAGS)
 	$(STRIP) $(BUILD_DIR)/$(ENGINE_LIB)
 	$(AAPT) package -f -m -J $(BUILD_DIR) -M AndroidManifest.xml -S $(RESOURCES_DIR) -I $(ANDROID_JAR)
-	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(SRC_DIR)/*.java
+	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(SRC_DIR)/*.java -Xlint:deprecation
 	$(D8) --lib $(ANDROID_JAR) --min-api $(ANDROID_API_LEVEL) --release --output $(BUILD_DIR) $(BUILD_DIR)/com/example/gles3/*.class
 	rm -f $(BUILD_DIR)/com/example/gles3/*.class $(BUILD_DIR)/com/example/gles3/R*.java
 	$(AAPT) package -f -M AndroidManifest.xml -S $(RESOURCES_DIR) -I $(ANDROID_JAR) -F $(UNALIGNED_APK) $(BUILD_DIR)

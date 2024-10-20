@@ -31,4 +31,4 @@ launch: install
 	@$(ADB) shell am start -n "com.example.gles3/android.app.NativeActivity" > /dev/null 2>&1
 
 clean:
-	rm -rf app.apk
+	rm -rf app.apk lib

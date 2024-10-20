@@ -42,9 +42,9 @@ LDFLAGS             := -lGLESv3 -llog -lm -shared
 
 .PHONY: all apk engine launch clean
 
-all: launch
+all: clean engine apk
 
-apk: clean engine
+apk:
 	$(AAPT) package -f -m -J $(BUILD_DIR) -M $(MANIFEST_FILE) -S $(RES_DIR) -I $(ANDROID_JAR)
 	$(JAVAC) -cp $(ANDROID_JAR):$(BUILD_DIR) -d $(BUILD_DIR) $(SRC_DIR)/MainActivity.java
 	$(D8) --lib $(ANDROID_JAR) --min-api $(ANDROID_API_LEVEL) --release --output $(BUILD_DIR) $(BUILD_DIR)/com/example/gles3/*.class
@@ -57,7 +57,7 @@ engine: $(ENGINE_SRC)
 	$(CC) $(CFLAGS) $(ENGINE_SRC) -o $(ENGINE_LIB) $(LDFLAGS)
 	$(STRIP) $(ENGINE_LIB)
 
-launch: apk
+launch: all
 	$(ADB) install $(SIGNED_APK)
 	$(ADB) shell am start -n "$(PACKAGE_ID)/.MainActivity"
 

@@ -17,7 +17,6 @@ DEBUG_KEYSTORE      := $(HOME)/.gradle/debug.keystore
 
 TOOLCHAINS          := $(ANDROID_ROOT)/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64
 CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang
-CXX                 := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang++
 STRIP               := $(TOOLCHAINS)/bin/llvm-strip
 
 SRC_DIR             := src

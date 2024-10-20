@@ -1,4 +1,3 @@
-ARCHS               := arm64-v8a armeabi-v7a x86 x86_64
 ANDROID_ROOT        := $(HOME)/Library/Android/sdk
 ANDROID_JAR         := $(ANDROID_ROOT)/platforms/android-34/android.jar
 ANDROID_NDK_VERSION := 26.3.11579264
@@ -35,12 +34,7 @@ SIGNED_APK          := $(BUILD_DIR)/app.apk
 all: launch_apk
 
 generate_engine_lib:
-	@$(foreach arch,$(ARCHS),$(MAKE) single_lib ARCH=$(arch) ANDROID_API_LEVEL=$(ANDROID_API_LEVEL);)
-
-single_lib:
 	@mkdir -p $(BUILD_DIR)/lib/$(ARCH)
-	CC=$(TOOLCHAINS)/bin/$(ARCH)-linux-android$(ANDROID_API_LEVEL)-clang
-	STRIP=$(TOOLCHAINS)/bin/llvm-strip
 	$(CC) $(ENGINE_FILES) -o $(BUILD_DIR)/lib/$(ARCH)/libengine.so -lGLESv3 -lc -lm -llog -landroid -shared -fPIC
 	$(STRIP) $(BUILD_DIR)/lib/$(ARCH)/libengine.so
 

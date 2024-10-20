@@ -18,7 +18,7 @@ engine:
 		-I./.deps/include \
 		-Wall \
 		-Wextra \
-		./src/video.c \
+		./src/triangle.c \
 		-o \
 		./build/lib/arm64-v8a/libengine.so \
 		-L./.deps/lib \

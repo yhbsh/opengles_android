@@ -9,7 +9,7 @@ import javax.microedition.khronos.opengles.GL10;
 
 public class MainActivity extends Activity {
     static {
-        System.loadLibrary("hello");
+        System.loadLibrary("engine");
     }
 
     GLSurfaceView mView;

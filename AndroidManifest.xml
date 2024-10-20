@@ -4,7 +4,7 @@
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
 
     <application
         android:hasCode="false"
@@ -16,7 +16,7 @@
         android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
         android:windowSoftInputMode="adjustResize"
         android:exported="true"
-        android:screenOrientation="portrait">
+        android:screenOrientation="landscape">
         <meta-data
             android:name="android.app.lib_name"
             android:value="engine" />

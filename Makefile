@@ -15,21 +15,26 @@ engine:
 	@mkdir -p build/lib/arm64-v8a
 
 	$(CC) \
-		-I./include \
+		-I./.deps/include \
 		-Wall \
 		-Wextra \
-		./src/native.c \
+		./src/video.c \
 		-o \
 		./build/lib/arm64-v8a/libengine.so \
-		-L./lib \
+		-L./.deps/lib \
 		-shared \
 		-fPIC \
-		-lGLESv2 \
+		-lGLESv3 \
 		-legl \
 		-lc \
 		-lm \
 		-llog \
-		-landroid
+		-landroid \
+		-lavformat \
+		-lavcodec \
+		-lswscale \
+		-lswresample \
+		-lavutil
 
 	@$(STRIP) ./build/lib/arm64-v8a/libengine.so
 

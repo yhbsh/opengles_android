@@ -21,9 +21,8 @@
 
 #include <unistd.h>
 
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "Engine", __VA_ARGS__))
+#define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "Engine", __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
-#define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "Engine", __VA_ARGS__))
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -31,12 +30,12 @@ void av_log_callback(void *ptr, int level, const char *fmt, va_list args) {
     (void)ptr;
     pthread_mutex_lock(&log_mutex);
 
+    char log_buffer[2048];
+    vsnprintf(log_buffer, sizeof(log_buffer), fmt, args);
+
     switch (level) {
-    case AV_LOG_INFO: __android_log_vprint(ANDROID_LOG_INFO, "Engine", fmt, args); break;
-    case AV_LOG_ERROR: __android_log_vprint(ANDROID_LOG_ERROR, "Engine", fmt, args); break;
-    case AV_LOG_VERBOSE: __android_log_vprint(ANDROID_LOG_VERBOSE, "Engine", fmt, args); break;
-    case AV_LOG_TRACE: __android_log_vprint(ANDROID_LOG_VERBOSE, "Engine", fmt, args); break;
-    default: __android_log_vprint(ANDROID_LOG_UNKNOWN, "Engine", fmt, args); break;
+    case AV_LOG_ERROR: LOGE("%s", log_buffer); break;
+    default: LOG("%s", log_buffer); break;
     }
 
     pthread_mutex_unlock(&log_mutex);
@@ -192,22 +191,21 @@ void *run_main(void *arg) {
 
     int ret;
 
-    av_log_set_level(AV_LOG_TRACE);
     av_log_set_callback(av_log_callback);
 
     if ((ret = avformat_open_input(&app.format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", NULL, NULL)) < 0) {
-        LOGI("[ERROR]: avformat_open_input %s", av_err2str(ret));
+        LOG("[ERROR]: avformat_open_input %s", av_err2str(ret));
         exit(1);
     }
 
     if ((ret = avformat_find_stream_info(app.format_context, NULL)) < 0) {
-        LOGI("[ERROR]: avformat_find_stream_info %s", av_err2str(ret));
+        LOG("[ERROR]: avformat_find_stream_info %s", av_err2str(ret));
         exit(1);
     }
 
     const AVCodec *vcodec = avcodec_find_decoder_by_name("h264");
     if ((ret = av_find_best_stream(app.format_context, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0)) < 0) {
-        LOGI("[ERROR]: av_find_best_stream %s", av_err2str(ret));
+        LOG("[ERROR]: av_find_best_stream %s", av_err2str(ret));
         exit(1);
     }
 
@@ -215,35 +213,35 @@ void *run_main(void *arg) {
 
     app.codec_context = avcodec_alloc_context3(vcodec);
     if (!app.codec_context) {
-        LOGI("[ERROR]: avcodec_alloc_context3");
+        LOG("[ERROR]: avcodec_alloc_context3");
         exit(1);
     }
     if ((ret = avcodec_parameters_to_context(app.codec_context, vstream->codecpar)) < 0) {
-        LOGI("[ERROR]: avcodec_parameters_to_context: %s", av_err2str(ret));
+        LOG("[ERROR]: avcodec_parameters_to_context: %s", av_err2str(ret));
         exit(1);
     }
 
     if ((ret = avcodec_open2(app.codec_context, vcodec, NULL)) < 0) {
-        LOGI("[ERROR]: avcodec_open2: %s", av_err2str(ret));
+        LOG("[ERROR]: avcodec_open2: %s", av_err2str(ret));
         exit(1);
     }
 
     const AVCodec *acodec = NULL;
     if ((ret = av_find_best_stream(app.format_context, AVMEDIA_TYPE_AUDIO, -1, -1, &acodec, 0)) < 0) {
-        LOGI("[ERROR]: av_find_best_stream %s", av_err2str(ret));
+        LOG("[ERROR]: av_find_best_stream %s", av_err2str(ret));
         exit(1);
     }
 
     app.pkt = av_packet_alloc();
     if (!app.pkt) {
-        LOGI("[ERROR]: av_packet_alloc");
+        LOG("[ERROR]: av_packet_alloc");
         exit(1);
     }
 
     app.tmp_frame = av_frame_alloc();
     app.frame = av_frame_alloc();
     if (!app.tmp_frame || !app.frame) {
-        LOGI("[ERROR]: av_frame_alloc");
+        LOG("[ERROR]: av_frame_alloc");
         exit(1);
     }
 
@@ -259,7 +257,7 @@ void *run_main(void *arg) {
 
         if (vstream && app.pkt->stream_index == vstream->index) {
             if ((ret = avcodec_send_packet(app.codec_context, app.pkt)) < 0) {
-                LOGI("[ERROR]: avcodec_send_packet: %s", av_err2str(ret));
+                LOG("[ERROR]: avcodec_send_packet: %s", av_err2str(ret));
                 exit(1);
             }
 
@@ -276,7 +274,7 @@ void *run_main(void *arg) {
                     app.sws_context = sws_getContext(app.tmp_frame->width, app.tmp_frame->height, app.tmp_frame->format, app.tmp_frame->width, app.tmp_frame->height, AV_PIX_FMT_RGBA, SWS_BICUBIC, NULL, NULL, NULL);
                 }
                 if ((ret = sws_scale_frame(app.sws_context, app.frame, app.tmp_frame)) < 0) {
-                    LOGI("[ERROR]: sws_scale_frame: %s", av_err2str(ret));
+                    LOG("[ERROR]: sws_scale_frame: %s", av_err2str(ret));
                     exit(1);
                 }
 
@@ -300,7 +298,7 @@ void *run_main(void *arg) {
 }
 
 void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
-    LOGI("onNativeWindowCreated");
+    LOG("onNativeWindowCreated");
 
     (void)activity;
 
@@ -317,7 +315,7 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     (void)activity;
     (void)window;
-    LOGI("onNativeWindowDestroyed");
+    LOG("onNativeWindowDestroyed");
 
     app.running = false;
     pthread_join(app.thread, NULL);

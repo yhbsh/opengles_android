@@ -16,3 +16,4 @@ local.properties
 .cache/
 compile_commands.json
 .deps
+*.apk

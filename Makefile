@@ -1,7 +1,7 @@
 ANDROID_ROOT = $(HOME)/Library/Android/sdk
 BUILD_TOOLS  = $(ANDROID_ROOT)/build-tools/34.0.0
 ADB          = $(ANDROID_ROOT)/platform-tools/adb
-AAPT2        = $(BUILD_TOOLS)/aapt2
+AAPT         = $(BUILD_TOOLS)/aapt
 ZIP_ALIGN    = $(BUILD_TOOLS)/zipalign
 APK_SIGNER   = $(BUILD_TOOLS)/apksigner
 
@@ -9,74 +9,30 @@ TOOLCHAINS   = $(ANDROID_ROOT)/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-
 CC           = $(TOOLCHAINS)/bin/aarch64-linux-android21-clang
 STRIP        = $(TOOLCHAINS)/bin/llvm-strip
 
-PROG        ?= triangle
+FLAGS        = -I.deps/include -Wall -Wextra
+PROG         = triangle
+LIBS         = -L.deps/lib -lGLESv3 -legl -lc -lm -llog -landroid -lavformat -lavcodec -lswscale -lswresample -lavutil
 
 all: launch
+apk: package
 
 engine:
-	@mkdir -p build/lib/arm64-v8a
+	@mkdir -p lib/arm64-v8a
 
-	$(CC) \
-		-I./.deps/include \
-		-Wall \
-		-Wextra \
-		./src/$(PROG).c \
-		-o \
-		./build/lib/arm64-v8a/libengine.so \
-		-L./.deps/lib \
-		-shared \
-		-fPIC \
-		-lGLESv3 \
-		-legl \
-		-lc \
-		-lm \
-		-llog \
-		-landroid \
-		-lavformat \
-		-lavcodec \
-		-lswscale \
-		-lswresample \
-		-lavutil
+	$(CC) $(FLAGS) src/$(PROG).c -o ./lib/arm64-v8a/libengine.so -shared -fPIC $(LIBS)
+	$(STRIP) ./lib/arm64-v8a/libengine.so
 
-	@$(STRIP) ./build/lib/arm64-v8a/libengine.so
-
-unsigned: engine
-	$(AAPT2) \
-		link \
-		-o \
-		build/app.unsigned.apk \
-		--manifest \
-		AndroidManifest.xml \
-		-I \
-		$(ANDROID_ROOT)/platforms/android-21/android.jar \
-		--auto-add-overlay \
-		--min-sdk-version 21 \
-		--target-sdk-version 34
-
-	@cd build && zip -qur app.unsigned.apk lib
-
-signed: unsigned
-	$(APK_SIGNER) \
-		sign \
-		--ks \
-		~/.gradle/debug.keystore\
-		--ks-key-alias \
-		androiddebugkey \
-		--ks-pass \
-		pass:android \
-		--key-pass \
-		pass:android \
-		--out \
-		build/app.apk \
-		build/app.unsigned.apk
-
-apk: signed
+package: engine
+	$(AAPT) package -f -M AndroidManifest.xml -I $(ANDROID_ROOT)/platforms/android-21/android.jar -F app.unsigned.apk
+	$(AAPT) add app.unsigned.apk lib/arm64-v8a/libengine.so > /dev/null
+	$(APK_SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out app.apk app.unsigned.apk
+	@rm -rf app.unsigned.apk app.apk.idsig lib
 
 install: apk
-	@$(ADB) install build/app.apk > /dev/null 2>&1
+	@$(ADB) install app.apk > /dev/null 2>&1
 
 launch: install
 	@$(ADB) shell am start -n "com.example.gles3/android.app.NativeActivity" > /dev/null 2>&1
 
 clean:
-	rm -rf build
+	rm -rf app.apk

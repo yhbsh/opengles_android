@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.22.1)
-project("hello")
+project("engine")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
-add_library(${CMAKE_PROJECT_NAME} SHARED player.c)
+add_library(${CMAKE_PROJECT_NAME} SHARED triangle.c)
 
 find_library(LOG_LIB log)
 find_library(LIBC c)

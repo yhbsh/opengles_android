@@ -177,54 +177,11 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     app.window = NULL;
 }
 
-void onStart(ANativeActivity *activity) {
-    (void)activity;
-    LOGI("onStart");
-}
-
-void onResume(ANativeActivity *activity) {
-    (void)activity;
-    LOGI("onResume");
-}
-
-void onDestroy(ANativeActivity *activity) {
-    (void)activity;
-    LOGI("onDestroy");
-}
-
-void onPause(ANativeActivity *activity) {
-    (void)activity;
-    LOGI("onPause");
-}
-
-void onStop(ANativeActivity *activity) {
-    (void)activity;
-    LOGI("onStop");
-}
-
-void onInputQueueCreated(ANativeActivity *activity, AInputQueue *queue) {
-    (void)activity;
-    (void)queue;
-    LOGI("onInputQueueCreated");
-}
-
-void onInputQueueDestroyed(ANativeActivity *activity, AInputQueue *queue) {
-    (void)activity;
-    (void)queue;
-    LOGI("onInputQueueDestroyed");
-}
-
 JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedState, size_t savedStateSize) {
     (void)savedState;
     (void)savedStateSize;
 
-    activity->callbacks->onStart = onStart;
-    activity->callbacks->onResume = onResume;
-    activity->callbacks->onStop = onStop;
-    activity->callbacks->onDestroy = onDestroy;
     activity->callbacks->onNativeWindowCreated = onNativeWindowCreated;
     activity->callbacks->onNativeWindowDestroyed = onNativeWindowDestroyed;
-    activity->callbacks->onInputQueueCreated = onInputQueueCreated;
-    activity->callbacks->onInputQueueDestroyed = onInputQueueDestroyed;
     activity->instance = NULL;
 }

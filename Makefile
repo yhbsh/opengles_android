@@ -9,6 +9,8 @@ TOOLCHAINS   = $(ANDROID_ROOT)/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-
 CC           = $(TOOLCHAINS)/bin/aarch64-linux-android21-clang
 STRIP        = $(TOOLCHAINS)/bin/llvm-strip
 
+PROG        ?= triangle
+
 all: launch
 
 engine:
@@ -18,7 +20,7 @@ engine:
 		-I./.deps/include \
 		-Wall \
 		-Wextra \
-		./src/triangle.c \
+		./src/$(PROG).c \
 		-o \
 		./build/lib/arm64-v8a/libengine.so \
 		-L./.deps/lib \

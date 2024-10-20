@@ -33,13 +33,13 @@ typedef struct {
     /* GLES */
     GLuint program, VAO, texture;
 
-    bool running;
-    pthread_t thread;
+    bool is_rendering;
+    pthread_t render_thread;
 } AndroidApp;
 
 AndroidApp app = {0};
 
-void *run_main(void *arg) {
+void *render_task(void *arg) {
     (void)arg;
 
     // Get display
@@ -146,7 +146,7 @@ void *run_main(void *arg) {
     float previousX = 0.0f;
     float rotationAngle = 0.0f;
 
-    while (app.running) {
+    while (app.is_rendering) {
         AInputEvent *event = NULL;
 
         while (AInputQueue_hasEvents(app.input) > 0) {
@@ -215,8 +215,8 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
         return;
     }
 
-    app.running = true;
-    pthread_create(&app.thread, NULL, run_main, NULL);
+    app.is_rendering = true;
+    pthread_create(&app.render_thread, NULL, render_task, NULL);
 }
 
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
@@ -224,8 +224,8 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     (void)window;
     LOGI("onNativeWindowDestroyed");
 
-    app.running = false;
-    pthread_join(app.thread, NULL);
+    app.is_rendering = false;
+    pthread_join(app.render_thread, NULL);
 
     // Unbind EGL context and surface
     if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {

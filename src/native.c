@@ -3,6 +3,9 @@
 #include <GLES/egl.h>
 #include <GLES/gl.h>
 
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
+
 #include <android/log.h>
 #include <android/native_activity.h>
 
@@ -14,13 +17,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MINIAUDIO_IMPLEMENTATION
+#include <miniaudio/miniaudio.h>
+
 #include <unistd.h>
 
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "Engine", __VA_ARGS__))
-#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
-#define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "Engine", __VA_ARGS__))
+#define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "ENGINE", __VA_ARGS__))
+#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "ENGINE", __VA_ARGS__))
+#define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "ENGINE", __VA_ARGS__))
 
 typedef struct {
+    ANativeActivity *activity;
     ANativeWindow *window;
 
     void *egl_display;
@@ -28,29 +35,28 @@ typedef struct {
     void *egl_context;
     void *egl_config;
 
-    bool running;
-    pthread_t thread;
+    bool is_rendering;
+    bool is_playing_audio;
+    pthread_t render_thread;
+    pthread_t audio_thread;
 } AndroidApp;
 
 AndroidApp app = {0};
 
-void *run_main(void *arg) {
+void *render_task(void *arg) {
     (void)arg;
 
-    // Get display
     app.egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (app.egl_display == EGL_NO_DISPLAY) {
         LOGE("cannot get EGL display");
         exit(0);
     }
 
-    // Initialize EGL
     if (!eglInitialize(app.egl_display, NULL, NULL)) {
         LOGE("cannot initialize EGL");
         exit(0);
     }
 
-    // Choose config for GLES v2
     EGLint attribs[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE};
     EGLint numConfigs;
     if (!eglChooseConfig(app.egl_display, attribs, &app.egl_config, 1, &numConfigs) || numConfigs == 0) {
@@ -59,7 +65,6 @@ void *run_main(void *arg) {
         exit(0);
     }
 
-    // Create context for GLES v2
     EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE}; // GLES 2.0
     app.egl_context = eglCreateContext(app.egl_display, app.egl_config, EGL_NO_CONTEXT, contextAttribs);
     if (app.egl_context == EGL_NO_CONTEXT) {
@@ -68,7 +73,6 @@ void *run_main(void *arg) {
         exit(0);
     }
 
-    // Create window surface
     app.egl_surface = eglCreateWindowSurface(app.egl_display, app.egl_config, app.window, NULL);
     if (app.egl_surface == EGL_NO_SURFACE) {
         LOGE("cannot create EGL window surface");
@@ -77,7 +81,6 @@ void *run_main(void *arg) {
         exit(0);
     }
 
-    // Make current
     if (!eglMakeCurrent(app.egl_display, app.egl_surface, app.egl_surface, app.egl_context)) {
         LOGE("cannot make EGL context current");
         eglDestroySurface(app.egl_display, app.egl_surface);
@@ -86,8 +89,6 @@ void *run_main(void *arg) {
         exit(0);
     }
 
-    app.running = true;
-
     GLint width, height;
     eglQuerySurface(app.egl_display, app.egl_surface, EGL_WIDTH, &width);
     eglQuerySurface(app.egl_display, app.egl_surface, EGL_HEIGHT, &height);
@@ -95,7 +96,7 @@ void *run_main(void *arg) {
 
     float dt = 0.0f;
 
-    while (app.running) {
+    while (app.is_rendering) {
         float r = (sinf(dt + 0) * 0.5f) + 0.5f;
         float g = (cosf(dt + 0) * 0.5f) + 0.5f;
         float b = (sinf(dt + 3) * 0.5f) + 0.5f;
@@ -115,7 +116,7 @@ void *run_main(void *arg) {
 
                 if (app.egl_surface == EGL_NO_SURFACE) {
                     LOGE("Failed to re-create EGL surface");
-                    app.running = false;
+                    app.is_rendering = false;
                     break;
                 }
 
@@ -129,8 +130,81 @@ void *run_main(void *arg) {
     return NULL;
 }
 
+void data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount) {
+    ma_decoder *pDecoder = (ma_decoder *)pDevice->pUserData;
+    if (pDecoder == NULL) {
+        return;
+    }
+
+    ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount, NULL);
+
+    (void)pInput;
+}
+
+void *audio_playback_task(void *arg) {
+    (void)arg;
+
+    app.is_playing_audio = true;
+    AAsset *asset = AAssetManager_open(app.activity->assetManager, "file.wav", AASSET_MODE_UNKNOWN);
+    if (!asset) {
+        LOGE("cannot load file.wav");
+        exit(0);
+    }
+
+    int64_t size = AAsset_getLength(asset);
+    void *data = malloc(size);
+
+    if (AAsset_read(asset, data, size) < 0) {
+        LOGE("cannot read file.wav");
+        exit(0);
+    }
+
+    ma_result ret;
+
+    ma_event event;
+    ma_decoder decoder;
+    ma_decoder_config config = ma_decoder_config_init(ma_format_f32, 2, 44100);
+
+    if ((ret = ma_decoder_init_memory(data, size, &config, &decoder)) != MA_SUCCESS) {
+        LOGE("cannot initialize decoder %s", ma_result_description(ret));
+        free(data);
+        AAsset_close(asset);
+        exit(0);
+    }
+
+    ma_device_config device_config = ma_device_config_init(ma_device_type_playback);
+    device_config.playback.format = decoder.outputFormat;
+    device_config.playback.channels = decoder.outputChannels;
+    device_config.sampleRate = decoder.outputSampleRate;
+    device_config.dataCallback = data_callback;
+    device_config.pUserData = &decoder;
+
+    ma_device device;
+    if ((ret = ma_device_init(NULL, &device_config, &device)) != MA_SUCCESS) {
+        LOGE("cannot initialize playback device %s", ma_result_description(ret));
+        ma_decoder_uninit(&decoder);
+        free(data);
+        AAsset_close(asset);
+        exit(0);
+    }
+
+    if ((ret = ma_device_start(&device)) != MA_SUCCESS) {
+        LOGE("cannot start playback %s", ma_result_description(ret));
+        exit(0);
+    }
+
+    ma_event_wait(&event);
+
+    ma_device_uninit(&device);
+    ma_decoder_uninit(&decoder);
+    free(data);
+    AAsset_close(asset);
+
+    return NULL;
+}
+
 void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
-    LOGI("onNativeWindowCreated");
+    LOG("onNativeWindowCreated");
 
     (void)activity;
 
@@ -140,23 +214,26 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
         return;
     }
 
-    pthread_create(&app.thread, NULL, run_main, NULL);
+    app.is_rendering = true;
+
+    pthread_create(&app.render_thread, NULL, render_task, NULL);
+    if (!app.is_playing_audio) {
+        pthread_create(&app.audio_thread, NULL, audio_playback_task, NULL);
+    }
 }
 
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     (void)activity;
     (void)window;
-    LOGI("onNativeWindowDestroyed");
+    LOG("onNativeWindowDestroyed");
 
-    app.running = false;
-    pthread_join(app.thread, NULL);
+    app.is_rendering = false;
+    pthread_join(app.render_thread, NULL);
 
-    // Unbind EGL context and surface
     if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
         LOGE("cannot unbind EGL context");
     }
 
-    // Destroy EGL surface and context
     if (!eglDestroySurface(app.egl_display, app.egl_surface)) {
         LOGE("cannot destroy EGL surface");
     }
@@ -165,7 +242,6 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
         LOGE("cannot destroy EGL context");
     }
 
-    // Terminate EGL
     if (!eglTerminate(app.egl_display)) {
         LOGE("cannot terminate EGL");
     }
@@ -180,7 +256,7 @@ JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedSt
     (void)savedState;
     (void)savedStateSize;
 
-    activity->callbacks->onNativeWindowCreated = onNativeWindowCreated;
-    activity->callbacks->onNativeWindowDestroyed = onNativeWindowDestroyed;
-    activity->instance = NULL;
+    app.activity = activity;
+    app.activity->callbacks->onNativeWindowCreated = onNativeWindowCreated;
+    app.activity->callbacks->onNativeWindowDestroyed = onNativeWindowDestroyed;
 }

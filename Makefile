@@ -17,15 +17,6 @@ JAVAC               := $(JAVA_HOME)/bin/javac
 DEBUG_KEYSTORE      := $(HOME)/.gradle/debug.keystore
 
 TOOLCHAINS          := $(ANDROID_ROOT)/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64
-ifeq ($(ARCH),arm64-v8a)
-    TARGET_ARCH     := aarch64-linux-android$(ANDROID_API_LEVEL)
-else ifeq ($(ARCH),armeabi-v7a)
-    TARGET_ARCH     := armv7a-linux-androideabi$(ANDROID_API_LEVEL)
-else ifeq ($(ARCH),x86)
-    TARGET_ARCH     := i686-linux-android$(ANDROID_API_LEVEL)
-else ifeq ($(ARCH),x86_64)
-    TARGET_ARCH     := x86_64-linux-android$(ANDROID_API_LEVEL)
-endif
 CC                  := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang
 CXX                 := $(TOOLCHAINS)/bin/aarch64-linux-android34-clang++
 STRIP               := $(TOOLCHAINS)/bin/llvm-strip

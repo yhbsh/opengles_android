@@ -16,6 +16,8 @@ engine:
 
 	$(CC) \
 		-I./include \
+		-Wall \
+		-Wextra \
 		./src/native.c \
 		-o \
 		./build/lib/arm64-v8a/libengine.so \

@@ -12,6 +12,7 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <unistd.h>
 
@@ -19,37 +20,84 @@
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
 #define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "Engine", __VA_ARGS__))
 
-bool isRendering = false;
 pthread_t thread;
 
-ANativeWindow *nativeWindow = NULL;
+typedef struct {
+    ANativeWindow *window;
 
-void *render_loop(void *arg) {
-    ANativeActivity *activity = (ANativeActivity *)arg;
+    void *egl_display;
+    void *egl_surface;
+    void *egl_context;
+    void *egl_config;
 
-    EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    eglInitialize(display, NULL, NULL);
+    bool running;
+} AndroidApp;
 
+AndroidApp app = {0};
+
+void *run_render(void *arg) {
+
+    (void)arg;
+
+    // Get display
+    app.egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (app.egl_display == EGL_NO_DISPLAY) {
+        LOGE("cannot get EGL display");
+        exit(0);
+    }
+
+    // Initialize EGL
+    if (!eglInitialize(app.egl_display, NULL, NULL)) {
+        LOGE("cannot initialize EGL");
+        exit(0);
+    }
+
+    // Choose config for GLES v2
     EGLint attribs[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE};
-    EGLConfig config;
     EGLint numConfigs;
-    eglChooseConfig(display, attribs, &config, 1, &numConfigs);
+    if (!eglChooseConfig(app.egl_display, attribs, &app.egl_config, 1, &numConfigs) || numConfigs == 0) {
+        LOGE("cannot choose EGL config");
+        eglTerminate(app.egl_display);
+        exit(0);
+    }
 
-    EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
-    EGLContext context = eglCreateContext(display, config, EGL_NO_CONTEXT, contextAttribs);
+    // Create context for GLES v2
+    EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE}; // GLES 2.0
+    app.egl_context = eglCreateContext(app.egl_display, app.egl_config, EGL_NO_CONTEXT, contextAttribs);
+    if (app.egl_context == EGL_NO_CONTEXT) {
+        LOGE("cannot create EGL context");
+        eglTerminate(app.egl_display);
+        exit(0);
+    }
 
-    EGLSurface surface = eglCreateWindowSurface(display, config, nativeWindow, NULL);
-    eglMakeCurrent(display, surface, surface, context);
+    // Create window surface
+    app.egl_surface = eglCreateWindowSurface(app.egl_display, app.egl_config, app.window, NULL);
+    if (app.egl_surface == EGL_NO_SURFACE) {
+        LOGE("cannot create EGL window surface");
+        eglDestroyContext(app.egl_display, app.egl_context);
+        eglTerminate(app.egl_display);
+        exit(0);
+    }
+
+    // Make current
+    if (!eglMakeCurrent(app.egl_display, app.egl_surface, app.egl_surface, app.egl_context)) {
+        LOGE("cannot make EGL context current");
+        eglDestroySurface(app.egl_display, app.egl_surface);
+        eglDestroyContext(app.egl_display, app.egl_context);
+        eglTerminate(app.egl_display);
+        exit(0);
+    }
+
+    app.running = true;
 
     GLint width, height;
-    eglQuerySurface(display, surface, EGL_WIDTH, &width);
-    eglQuerySurface(display, surface, EGL_HEIGHT, &height);
+    eglQuerySurface(app.egl_display, app.egl_surface, EGL_WIDTH, &width);
+    eglQuerySurface(app.egl_display, app.egl_surface, EGL_HEIGHT, &height);
     glViewport(0, 0, width, height);
-    glEnable(GL_DEPTH_TEST);
 
     float dt = 0.0f;
 
-    while (isRendering) {
+    while (app.running) {
         float r = (sinf(dt + 0) * 0.5f) + 0.5f;
         float g = (cosf(dt + 0) * 0.5f) + 0.5f;
         float b = (sinf(dt + 3) * 0.5f) + 0.5f;
@@ -57,104 +105,124 @@ void *render_loop(void *arg) {
         glClearColor(r, g, b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        eglSwapBuffers(display, surface);
-        usleep(8000);
+        if (!eglSwapBuffers(app.egl_display, app.egl_surface)) {
+            EGLint error = eglGetError();
+            LOGE("eglSwapBuffers failed: 0x%x", error);
+
+            if (error == EGL_BAD_SURFACE) {
+                LOGE("Re-creating EGL surface due to EGL_BAD_SURFACE");
+
+                eglDestroySurface(app.egl_display, app.egl_surface);
+                app.egl_surface = eglCreateWindowSurface(app.egl_display, app.egl_config, app.window, NULL);
+
+                if (app.egl_surface == EGL_NO_SURFACE) {
+                    LOGE("Failed to re-create EGL surface");
+                    app.running = false;
+                    break;
+                }
+
+                eglMakeCurrent(app.egl_display, app.egl_surface, app.egl_surface, app.egl_context);
+            }
+        }
 
         dt += 0.01f;
     }
 
-    eglMakeCurrent(display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-    eglDestroySurface(display, surface);
-    eglDestroyContext(display, context);
-    eglTerminate(display);
-
     return NULL;
 }
 
-void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *window) {
+void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
     LOGI("onNativeWindowCreated");
 
-    nativeWindow = window;
+    (void)activity;
 
-    isRendering = true;
-    pthread_create(&thread, NULL, render_loop, activity);
+    app.window = w;
+    if (app.window == NULL) {
+        LOGE("no window available");
+        return;
+    }
+
+    pthread_create(&thread, NULL, run_render, NULL);
 }
 
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
+    (void)activity;
+    (void)window;
     LOGI("onNativeWindowDestroyed");
 
-    isRendering = false;
+    app.running = false;
     pthread_join(thread, NULL);
-    nativeWindow = NULL;
+
+    // Unbind EGL context and surface
+    if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
+        LOGE("cannot unbind EGL context");
+    }
+
+    // Destroy EGL surface and context
+    if (!eglDestroySurface(app.egl_display, app.egl_surface)) {
+        LOGE("cannot destroy EGL surface");
+    }
+
+    if (!eglDestroyContext(app.egl_display, app.egl_context)) {
+        LOGE("cannot destroy EGL context");
+    }
+
+    // Terminate EGL
+    if (!eglTerminate(app.egl_display)) {
+        LOGE("cannot terminate EGL");
+    }
+
+    app.egl_context = NULL;
+    app.egl_display = NULL;
+    app.egl_surface = NULL;
+    app.window = NULL;
 }
 
 void onStart(ANativeActivity *activity) {
+    (void)activity;
     LOGI("onStart");
 }
 
 void onResume(ANativeActivity *activity) {
+    (void)activity;
     LOGI("onResume");
 }
 
 void onDestroy(ANativeActivity *activity) {
+    (void)activity;
     LOGI("onDestroy");
 }
 
-void *onSaveInstanceState(ANativeActivity *activity, size_t *outSize) {
-    LOGI("onSaveInstanceState");
-    return NULL;
-}
-
 void onPause(ANativeActivity *activity) {
+    (void)activity;
     LOGI("onPause");
 }
 
 void onStop(ANativeActivity *activity) {
+    (void)activity;
     LOGI("onStop");
 }
 
-void onWindowFocusChanged(ANativeActivity *activity, int hasFocus) {
-    LOGI("onWindowFocusChanged");
-}
-
-void onNativeWindowResized(ANativeActivity *activity, ANativeWindow *window) {
-    LOGI("onNativeWindowResized");
-}
-
-void onNativeWindowRedrawNeeded(ANativeActivity *activity, ANativeWindow *window) {
-    LOGI("onNativeWindowRedrawNeeded");
-}
-
 void onInputQueueCreated(ANativeActivity *activity, AInputQueue *queue) {
+    (void)activity;
+    (void)queue;
     LOGI("onInputQueueCreated");
 }
 
 void onInputQueueDestroyed(ANativeActivity *activity, AInputQueue *queue) {
+    (void)activity;
+    (void)queue;
     LOGI("onInputQueueDestroyed");
 }
 
-void onContentRectChanged(ANativeActivity *activity, const ARect *rect) {
-    LOGI("onContentRectChanged");
-}
-
-void onConfigurationChanged(ANativeActivity *activity) {
-    LOGI("onConfigurationChanged");
-}
-
-void onLowMemory(ANativeActivity *activity) {
-    LOGI("onLowMemory");
-}
-
 JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedState, size_t savedStateSize) {
-    activity->callbacks->onDestroy = onDestroy;
+    (void)savedState;
+    (void)savedStateSize;
+
     activity->callbacks->onStart = onStart;
     activity->callbacks->onResume = onResume;
-    activity->callbacks->onSaveInstanceState = onSaveInstanceState;
-    activity->callbacks->onPause = onPause;
     activity->callbacks->onStop = onStop;
-    activity->callbacks->onConfigurationChanged = onConfigurationChanged;
-    activity->callbacks->onLowMemory = onLowMemory;
-    activity->callbacks->onWindowFocusChanged = onWindowFocusChanged;
+    activity->callbacks->onDestroy = onDestroy;
     activity->callbacks->onNativeWindowCreated = onNativeWindowCreated;
     activity->callbacks->onNativeWindowDestroyed = onNativeWindowDestroyed;
     activity->callbacks->onInputQueueCreated = onInputQueueCreated;

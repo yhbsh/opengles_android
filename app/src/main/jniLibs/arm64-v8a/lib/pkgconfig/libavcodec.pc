@@ -1,0 +1,14 @@
+prefix=/Users/home/dev/c/ffmpeg_android/ffmpeg-android-aarch64-30
+exec_prefix=${prefix}
+libdir=/Users/home/dev/c/ffmpeg_android/ffmpeg-android-aarch64-30/lib
+includedir=/Users/home/dev/c/ffmpeg_android/ffmpeg-android-aarch64-30/include
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 61.3.100
+Requires: libavutil >= 59.8.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavcodec -pthread -lm -latomic
+Libs.private: 
+Cflags: -I${includedir}

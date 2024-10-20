@@ -21,20 +21,8 @@
 
 #include <unistd.h>
 
-#define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "Engine", __VA_ARGS__))
-#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
-
-void av_log_callback(void *ptr, int level, const char *fmt, va_list args) {
-    (void)ptr;
-
-    char log_buffer[2048];
-    vsnprintf(log_buffer, sizeof(log_buffer), fmt, args);
-
-    switch (level) {
-    case AV_LOG_ERROR: LOGE("%s", log_buffer); break;
-    default: LOG("%s", log_buffer); break;
-    }
-}
+#define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "ENGINE", __VA_ARGS__))
+#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "ENGINE", __VA_ARGS__))
 
 const char *vertexShaderSource = "#version 300 es\n"
                                  "layout(location = 0) in vec4 aPosition;\n"
@@ -186,8 +174,6 @@ void *run_main(void *arg) {
 
     int ret;
 
-    av_log_set_callback(av_log_callback);
-
     if ((ret = avformat_open_input(&app.format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", NULL, NULL)) < 0) {
         LOG("[ERROR]: avformat_open_input %s", av_err2str(ret));
         exit(1);
@@ -221,12 +207,6 @@ void *run_main(void *arg) {
         exit(1);
     }
 
-    const AVCodec *acodec = NULL;
-    if ((ret = av_find_best_stream(app.format_context, AVMEDIA_TYPE_AUDIO, -1, -1, &acodec, 0)) < 0) {
-        LOG("[ERROR]: av_find_best_stream %s", av_err2str(ret));
-        exit(1);
-    }
-
     app.pkt = av_packet_alloc();
     if (!app.pkt) {
         LOG("[ERROR]: av_packet_alloc");
@@ -234,8 +214,12 @@ void *run_main(void *arg) {
     }
 
     app.tmp_frame = av_frame_alloc();
+    if (!app.tmp_frame) {
+        LOG("[ERROR]: av_frame_alloc");
+        exit(1);
+    }
     app.frame = av_frame_alloc();
-    if (!app.tmp_frame || !app.frame) {
+    if (!app.frame) {
         LOG("[ERROR]: av_frame_alloc");
         exit(1);
     }
@@ -260,10 +244,10 @@ void *run_main(void *arg) {
                 ret = avcodec_receive_frame(app.codec_context, app.tmp_frame);
                 if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)) break;
 
-                int64_t pts = (1000 * 1000 * app.frame->pts * vstream->time_base.num) / vstream->time_base.den;
+                int64_t pts = (1000 * 1000 * app.tmp_frame->pts * vstream->time_base.num) / vstream->time_base.den;
                 int64_t rts = av_gettime_relative() - launch_time;
                 if (pts > rts) av_usleep(pts - rts);
-                printf("%04ld | PTS %lds %03ldms %03ldus | RTS %lds %03ldms %03ldus | FMT: %s\n", app.codec_context->frame_num, pts / 1000000, (pts % 1000000) / 1000, pts % 1000, rts / 1000000, (rts % 1000000) / 1000, rts % 1000, av_get_pix_fmt_name(app.frame->format));
+                LOG("%04ld | PTS %lds %03ldms %03ldus | RTS %lds %03ldms %03ldus | FMT: %s\n", app.codec_context->frame_num, pts / 1000000, (pts % 1000000) / 1000, pts % 1000, rts / 1000000, (rts % 1000000) / 1000, rts % 1000, av_get_pix_fmt_name(app.frame->format));
 
                 if (!app.sws_context) {
                     app.sws_context = sws_getContext(app.tmp_frame->width, app.tmp_frame->height, app.tmp_frame->format, app.tmp_frame->width, app.tmp_frame->height, AV_PIX_FMT_RGBA, SWS_BICUBIC, NULL, NULL, NULL);

@@ -3,14 +3,11 @@ package com.example.gles3;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-import android.view.WindowManager;
-import android.view.WindowInsetsController;
-import android.view.WindowInsets;
-import android.view.ViewManager;
-import android.view.View;
 import android.app.Activity;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 
 public class MainActivity extends Activity {
     private static class Renderer implements GLSurfaceView.Renderer {

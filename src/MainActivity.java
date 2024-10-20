@@ -10,20 +10,6 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 
 public class MainActivity extends Activity {
-    private static class Renderer implements GLSurfaceView.Renderer {
-        public void onDrawFrame(GL10 gl) {
-            step();
-        }
-
-        public void onSurfaceChanged(GL10 gl, int width, int height) {
-            resize(width, height);
-        }
-
-        public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-            init();
-        }
-    }
-
     static {
         System.loadLibrary("engine");
     }
@@ -63,5 +49,19 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         mView.onResume();
+    }
+
+    private static class Renderer implements GLSurfaceView.Renderer {
+        public void onDrawFrame(GL10 gl) {
+            step();
+        }
+
+        public void onSurfaceChanged(GL10 gl, int width, int height) {
+            resize(width, height);
+        }
+
+        public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+            init();
+        }
     }
 }

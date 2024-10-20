@@ -35,8 +35,7 @@ typedef struct {
 
 AndroidApp app = {0};
 
-void *run_render(void *arg) {
-
+void *run_main(void *arg) {
     (void)arg;
 
     // Get display
@@ -142,7 +141,7 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
         return;
     }
 
-    pthread_create(&thread, NULL, run_render, NULL);
+    pthread_create(&thread, NULL, run_main, NULL);
 }
 
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {

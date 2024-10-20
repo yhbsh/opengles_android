@@ -24,11 +24,8 @@
 #define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "Engine", __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
 
-static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 void av_log_callback(void *ptr, int level, const char *fmt, va_list args) {
     (void)ptr;
-    pthread_mutex_lock(&log_mutex);
 
     char log_buffer[2048];
     vsnprintf(log_buffer, sizeof(log_buffer), fmt, args);
@@ -37,8 +34,6 @@ void av_log_callback(void *ptr, int level, const char *fmt, va_list args) {
     case AV_LOG_ERROR: LOGE("%s", log_buffer); break;
     default: LOG("%s", log_buffer); break;
     }
-
-    pthread_mutex_unlock(&log_mutex);
 }
 
 const char *vertexShaderSource = "#version 300 es\n"

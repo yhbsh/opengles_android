@@ -7,7 +7,7 @@
 #define LOG_TAG "OpenGL Engine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
-const char *vertSource = "#version 300 es\n"
+static const char *vertSource = "#version 300 es\n"
                          "layout (location = 0) in vec3 aPos;\n"
                          "layout (location = 1) in vec2 aTexCoord;\n"
                          "uniform mat4 uTransform;\n"
@@ -18,7 +18,7 @@ const char *vertSource = "#version 300 es\n"
                          "   TexCoord = aTexCoord;\n"
                          "}\0";
 
-const char *fragSource = "#version 300 es\n"
+static const char *fragSource = "#version 300 es\n"
                          "precision mediump float;\n"
                          "in vec2 TexCoord;\n"
                          "out vec4 FragColor;\n"

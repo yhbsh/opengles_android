@@ -6,7 +6,7 @@ NDK     = $(SDK)/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64
 CC      = $(NDK)/bin/aarch64-linux-android21-clang
 STRIP   = $(NDK)/bin/llvm-strip
 FLAGS   = -I.deps/include -Wall -Wextra
-PROG    = native
+PROG    = list
 LIBS    = -L.deps/lib -L$(NDK)/sysroot/usr/lib/aarch64-linux-android/30 -laaudio -lGLESv3 -legl -lc -lm -llog -landroid -lavformat -lavcodec -lswscale -lswresample -lavutil
 
 all: launch
@@ -21,7 +21,8 @@ engine:
 package: engine
 	$(AAPT) package -f -M AndroidManifest.xml -I $(SDK)/platforms/android-21/android.jar -F app.unsigned.apk
 	$(AAPT) add app.unsigned.apk lib/arm64-v8a/libengine.so > /dev/null
-	$(AAPT) add app.unsigned.apk assets/file.wav > /dev/null
+	$(AAPT) add app.unsigned.apk assets/shader.vert > /dev/null
+	$(AAPT) add app.unsigned.apk assets/shader.frag > /dev/null
 	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out app.apk app.unsigned.apk
 	@rm -rf app.unsigned.apk app.apk.idsig lib
 

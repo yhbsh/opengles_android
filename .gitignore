@@ -3,4 +3,5 @@ compile_commands.json
 .deps
 *.apk
 /build
-assets/
+*.wav
+*.mp3

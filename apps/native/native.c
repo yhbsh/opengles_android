@@ -37,9 +37,9 @@ typedef struct {
     void *egl_context;
     void *egl_config;
 
-    bool is_rendering;
+    bool running;
     bool is_playing_audio;
-    pthread_t render_thread;
+    pthread_t thread;
     pthread_t audio_thread;
 } AndroidApp;
 
@@ -98,7 +98,7 @@ void *render_task(void *arg) {
 
     float dt = 0.0f;
 
-    while (app.is_rendering) {
+    while (app.running) {
         float r = (sinf(dt + 0) * 0.5f) + 0.5f;
         float g = (cosf(dt + 0) * 0.5f) + 0.5f;
         float b = (sinf(dt + 3) * 0.5f) + 0.5f;
@@ -118,7 +118,7 @@ void *render_task(void *arg) {
 
                 if (app.egl_surface == EGL_NO_SURFACE) {
                     LOGE("Failed to re-create EGL surface");
-                    app.is_rendering = false;
+                    app.running = false;
                     break;
                 }
 
@@ -194,7 +194,11 @@ void *audio_playback_task(void *arg) {
     while (app.is_playing_audio) {
         ret = ma_decoder_read_pcm_frames(&decoder, audio_buffer, 1024, &frames_read);
         if (ret == MA_AT_END) {
-            break;
+            if ((ret = ma_decoder_seek_to_pcm_frame(&decoder, 0)) != MA_SUCCESS) {
+                LOGE("cannot reset decoder: %s", ma_result_description(ret));
+                break;
+            }
+            continue;
         }
 
         if (ret != MA_SUCCESS) {
@@ -230,9 +234,9 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
         return;
     }
 
-    app.is_rendering = true;
+    app.running = true;
 
-    pthread_create(&app.render_thread, NULL, render_task, NULL);
+    pthread_create(&app.thread, NULL, render_task, NULL);
     if (!app.is_playing_audio) {
         pthread_create(&app.audio_thread, NULL, audio_playback_task, NULL);
     }
@@ -243,8 +247,8 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     (void)window;
     LOG("onNativeWindowDestroyed");
 
-    app.is_rendering = false;
-    pthread_join(app.render_thread, NULL);
+    app.running = false;
+    pthread_join(app.thread, NULL);
 
     if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
         LOGE("cannot unbind EGL context");

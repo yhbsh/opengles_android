@@ -16,9 +16,9 @@
 
 #include <unistd.h>
 
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "Engine", __VA_ARGS__))
-#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
-#define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "Engine", __VA_ARGS__))
+#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "ENGINE", __VA_ARGS__))
+#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "ENGINE", __VA_ARGS__))
+#define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "ENGINE", __VA_ARGS__))
 
 typedef struct {
     ANativeWindow *window;
@@ -33,8 +33,8 @@ typedef struct {
     /* GLES */
     GLuint program, VAO, texture;
 
-    bool is_rendering;
-    pthread_t render_thread;
+    bool running;
+    pthread_t thread;
 } AndroidApp;
 
 AndroidApp app = {0};
@@ -146,7 +146,7 @@ void *render_task(void *arg) {
     float previousX = 0.0f;
     float rotationAngle = 0.0f;
 
-    while (app.is_rendering) {
+    while (app.running) {
         AInputEvent *event = NULL;
 
         while (AInputQueue_hasEvents(app.input) > 0) {
@@ -215,8 +215,8 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *w) {
         return;
     }
 
-    app.is_rendering = true;
-    pthread_create(&app.render_thread, NULL, render_task, NULL);
+    app.running = true;
+    pthread_create(&app.thread, NULL, render_task, NULL);
 }
 
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
@@ -224,8 +224,8 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     (void)window;
     LOGI("onNativeWindowDestroyed");
 
-    app.is_rendering = false;
-    pthread_join(app.render_thread, NULL);
+    app.running = false;
+    pthread_join(app.thread, NULL);
 
     // Unbind EGL context and surface
     if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {

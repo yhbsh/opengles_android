@@ -1,36 +1,30 @@
-SDK     = $(HOME)/Library/Android/sdk
-ADB     = $(SDK)/platform-tools/adb
-AAPT    = $(SDK)/build-tools/34.0.0/aapt
-SIGNER  = $(SDK)/build-tools/34.0.0/apksigner
-NDK     = $(SDK)/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64
-CC      = $(NDK)/bin/aarch64-linux-android21-clang
-STRIP   = $(NDK)/bin/llvm-strip
-FLAGS   = -I.deps/include -Wall -Wextra
-PROG    = list
-LIBS    = -L.deps/lib -L$(NDK)/sysroot/usr/lib/aarch64-linux-android/30 -laaudio -lGLESv3 -legl -lc -lm -llog -landroid -lavformat -lavcodec -lswscale -lswresample -lavutil
+TARGETS := list game native triangle video
 
-all: launch
-apk: package
+.PHONY: all clean launch $(TARGETS)
 
-engine:
-	@mkdir -p lib/arm64-v8a
+all: $(TARGETS)
 
-	$(CC) $(FLAGS) src/$(PROG).c -o ./lib/arm64-v8a/libengine.so -shared -fPIC $(LIBS)
-	$(STRIP) ./lib/arm64-v8a/libengine.so
+list:
+	$(MAKE) -C apps/list
 
-package: engine
-	$(AAPT) package -f -M AndroidManifest.xml -I $(SDK)/platforms/android-21/android.jar -F app.unsigned.apk
-	$(AAPT) add app.unsigned.apk lib/arm64-v8a/libengine.so > /dev/null
-	$(AAPT) add app.unsigned.apk assets/shader.vert > /dev/null
-	$(AAPT) add app.unsigned.apk assets/shader.frag > /dev/null
-	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out app.apk app.unsigned.apk
-	@rm -rf app.unsigned.apk app.apk.idsig lib
+game:
+	$(MAKE) -C apps/game
 
-install: apk
-	@$(ADB) install app.apk > /dev/null
+native:
+	$(MAKE) -C apps/native
 
-launch: install
-	@$(ADB) shell am start -n "com.example.native/android.app.NativeActivity" > /dev/null
+triangle:
+	$(MAKE) -C apps/triangle
+
+video:
+	$(MAKE) -C apps/video
 
 clean:
-	rm -rf app.apk lib
+	$(MAKE) -C apps/list clean
+	$(MAKE) -C apps/game clean
+	$(MAKE) -C apps/native clean
+	$(MAKE) -C apps/triangle clean
+	$(MAKE) -C apps/video clean
+
+launch:
+	$(MAKE) -C apps/game launch

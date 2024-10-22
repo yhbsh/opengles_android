@@ -22,7 +22,6 @@
 
 typedef struct {
     ANativeWindow *window;
-    AInputQueue *input;
     ANativeActivity *activity;
 
     /* EGL */
@@ -31,8 +30,8 @@ typedef struct {
     void *egl_context;
     void *egl_config;
 
-    bool is_rendering;
-    pthread_t render_thread;
+    bool running;
+    pthread_t thread;
 } AndroidApp;
 
 AndroidApp app = {0};
@@ -74,7 +73,7 @@ void *render_task(void *arg) {
         exit(0);
     }
 
-    EGLint attribs[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE};
+    EGLint attribs[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, EGL_NONE};
     EGLint numConfigs;
     if (!eglChooseConfig(app.egl_display, attribs, &app.egl_config, 1, &numConfigs) || numConfigs == 0) {
         LOGE("cannot choose EGL config");
@@ -106,17 +105,12 @@ void *render_task(void *arg) {
         exit(0);
     }
 
-    GLint width, height;
-    eglQuerySurface(app.egl_display, app.egl_surface, EGL_WIDTH, &width);
-    eglQuerySurface(app.egl_display, app.egl_surface, EGL_HEIGHT, &height);
-    glViewport(0, 0, width, height);
-
-    const char *vertex_shader_source = load_shader("shader.vert");
+    const char *vertex_shader_source = load_shader("game_vert.glsl");
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vertex_shader_source, NULL);
     glCompileShader(vs);
 
-    const char *fragment_shader_source = load_shader("shader.frag");
+    const char *fragment_shader_source = load_shader("game_frag.glsl");
     GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &fragment_shader_source, NULL);
     glCompileShader(fs);
@@ -131,10 +125,9 @@ void *render_task(void *arg) {
 
     // clang-format off
     float vertices[] = {
-        -0.9f, +0.7f, 
-        +0.9f, +0.7f, 
-        -0.9f, +0.8f, 
-        +0.9f, +0.8f,
+        -0.5f, -0.5f, 
+        +0.5f, -0.5f, 
+        +0.0f, +0.5f, 
     };
     // clang-format on
 
@@ -152,59 +145,14 @@ void *render_task(void *arg) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    GLuint transformLoc = glGetUniformLocation(program, "transform");
-    float transform[16];
-    float scroll_offset = 0.0f;
-    float scroll_velocity = 0.0f;
-    const float damping = 0.95f;
-
-    while (app.is_rendering) {
-        glClearColor(0.1f, 0.2f, 0.2f, 1.0f);
+    while (app.running) {
+        glClearColor(0.1f, 0.6f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
         glUseProgram(program);
-
-        AInputEvent *event = NULL;
-        while (AInputQueue_getEvent(app.input, &event) >= 0) {
-            if (AInputQueue_preDispatchEvent(app.input, event)) {
-                continue;
-            }
-
-            if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-                int32_t action = AMotionEvent_getAction(event);
-                float y = AMotionEvent_getY(event, 0);
-
-                static float last_y = 0.0f;
-                if (action == AMOTION_EVENT_ACTION_MOVE) {
-                    float delta = (y - last_y) * 0.0003f;
-                    scroll_velocity += delta;
-                }
-                last_y = y;
-            }
-
-            AInputQueue_finishEvent(app.input, event, 1);
-        }
-
-        scroll_offset += scroll_velocity;
-        scroll_velocity *= damping;
-
-        for (int i = 0; i < 1000; i++) {
-            memset(transform, 0, sizeof(float) * 16);
-
-            transform[00] = 1.0f;
-            transform[05] = 1.0f;
-            transform[10] = 1.0f;
-            transform[15] = 1.0f;
-
-            transform[12] = 0.0f;
-            transform[13] = i * -0.2f - scroll_offset;
-
-            glUniformMatrix4fv(transformLoc, 1, GL_FALSE, transform);
-
-            glBindVertexArray(VAO);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            glBindVertexArray(0);
-        }
-
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
         eglSwapBuffers(app.egl_display, app.egl_surface);
     }
 
@@ -217,9 +165,9 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *window) {
     (void)activity;
 
     app.window = window;
-    app.is_rendering = true;
+    app.running = true;
 
-    pthread_create(&app.render_thread, NULL, render_task, NULL);
+    pthread_create(&app.thread, NULL, render_task, NULL);
 }
 
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
@@ -227,8 +175,8 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     (void)window;
     LOGI("onNativeWindowDestroyed");
 
-    app.is_rendering = false;
-    pthread_join(app.render_thread, NULL);
+    app.running = false;
+    pthread_join(app.thread, NULL);
 
     if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
         LOGE("cannot unbind EGL context");
@@ -252,20 +200,6 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     app.window = NULL;
 }
 
-void onInputQueueCreated(ANativeActivity *activity, AInputQueue *queue) {
-    (void)activity;
-
-    app.input = queue;
-}
-
-void onInputQueueDestroyed(ANativeActivity *activity, AInputQueue *queue) {
-    (void)activity;
-
-    if (app.input == queue) {
-        app.input = NULL;
-    }
-}
-
 JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedState, size_t savedStateSize) {
     (void)savedState;
     (void)savedStateSize;
@@ -273,6 +207,4 @@ JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedSt
     app.activity = activity;
     app.activity->callbacks->onNativeWindowCreated = onNativeWindowCreated;
     app.activity->callbacks->onNativeWindowDestroyed = onNativeWindowDestroyed;
-    app.activity->callbacks->onInputQueueCreated = onInputQueueCreated;
-    app.activity->callbacks->onInputQueueDestroyed = onInputQueueDestroyed;
 }

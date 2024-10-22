@@ -27,10 +27,10 @@ package: engine
 	@rm -rf app.unsigned.apk app.apk.idsig lib
 
 install: apk
-	@$(ADB) install app.apk > /dev/null 2>&1
+	@$(ADB) install app.apk > /dev/null
 
 launch: install
-	@$(ADB) shell am start -n "com.example.native/android.app.NativeActivity" > /dev/null 2>&1
+	@$(ADB) shell am start -n "com.example.native/android.app.NativeActivity" > /dev/null
 
 clean:
 	rm -rf app.apk lib

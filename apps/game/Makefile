@@ -12,8 +12,8 @@ LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -landroid -lm
 
 all:
 	@mkdir -p lib/arm64-v8a
-	javac -cp $(JAR) --release 11 MainActivity.java
-	$(D8) --lib $(JAR) MainActivity.class --output .
+	javac -cp $(JAR) --release 11 *.java
+	$(D8) --lib $(JAR) *.class --output .
 	$(CC) $(CFLAGS) game.c -o lib/arm64-v8a/libgame.so $(LDFLAGS)
 	$(AAPT) package -f -M AndroidManifest.xml -I $(JAR) -F game.unsigned.apk
 	$(AAPT) add game.unsigned.apk lib/arm64-v8a/libgame.so > /dev/null

@@ -22,7 +22,7 @@ install: all
 	@$(ADB) install audio.apk > /dev/null
 
 launch: install
-	@$(ADB) shell am start -n "com.example.audio/android.app.audioActivity" > /dev/null
+	@$(ADB) shell am start -n "com.example.audio/android.app.NativeActivity" > /dev/null
 
 clean:
 	rm -rf *.apk *.unsigned.apk

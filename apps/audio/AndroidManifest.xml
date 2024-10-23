@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.native">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.audio">
     <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
 
     <application
-        android:label="Native"
+        android:label="Audio"
         android:hasCode="false">
 
         <activity
@@ -19,7 +19,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <meta-data android:name="android.app.lib_name" android:value="native" />
+            <meta-data android:name="android.app.lib_name" android:value="audio" />
         </activity>
 
     </application>

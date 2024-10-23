@@ -16,8 +16,10 @@ all:
 	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out video.apk video.unsigned.apk
 	@rm -rf video.unsigned.apk video.apk.idsig
 
-launch: all
+install: all
 	@$(ADB) install video.apk > /dev/null
+
+launch: install
 	@$(ADB) shell am start -n "com.example.video/android.app.NativeActivity" > /dev/null
 
 clean:

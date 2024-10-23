@@ -5,19 +5,19 @@ TARGETS := list game audio triangle video
 all: $(TARGETS)
 
 list:
-	$(MAKE) -C apps/list
+	$(MAKE) -C apps/list install
 
 game:
-	$(MAKE) -C apps/game
+	$(MAKE) -C apps/game launch
 
 audio:
-	$(MAKE) -C apps/audio
+	$(MAKE) -C apps/audio install
 
 triangle:
-	$(MAKE) -C apps/triangle
+	$(MAKE) -C apps/triangle install
 
 video:
-	$(MAKE) -C apps/video
+	$(MAKE) -C apps/video install
 
 clean:
 	$(MAKE) -C apps/list clean

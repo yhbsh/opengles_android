@@ -18,8 +18,10 @@ all:
 	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out list.apk list.unsigned.apk
 	@rm -rf list.unsigned.apk list.apk.idsig
 
-launch:
+install: all
 	@$(ADB) install list.apk > /dev/null
+
+launch: install
 	@$(ADB) shell am start -n "com.example.list/android.app.NativeActivity" > /dev/null
 
 clean:

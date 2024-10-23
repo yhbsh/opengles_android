@@ -18,8 +18,10 @@ all:
 	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out audio.apk audio.unsigned.apk
 	@rm -rf audio.unsigned.apk audio.apk.idsig
 
-launch: all
+install: all
 	@$(ADB) install audio.apk > /dev/null
+
+launch: install
 	@$(ADB) shell am start -n "com.example.audio/android.app.audioActivity" > /dev/null
 
 clean:

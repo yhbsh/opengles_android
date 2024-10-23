@@ -7,7 +7,7 @@ LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -landroid -lm
 
 .PHONE: all clean
 
-all: launch
+all: install
 
 package:
 	@mkdir -p lib/arm64-v8a
@@ -19,8 +19,10 @@ package:
 	apksigner sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out game.apk game.unsigned.apk
 	@rm -rf **.idsig **.unsigned.apk lib
 
-launch: package
+install: package
 	@adb install game.apk > /dev/null
+
+launch: install
 	@adb shell am start -n "com.example.game/android.app.NativeActivity" > /dev/null
 
 clean:

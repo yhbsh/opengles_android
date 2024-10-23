@@ -16,8 +16,10 @@ all:
 	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out triangle.apk triangle.unsigned.apk
 	@rm -rf triangle.unsigned.apk triangle.apk.idsig
 
-launch: all
+install: all
 	@$(ADB) install triangle.apk > /dev/null
+
+launch: install
 	@$(ADB) shell am start -n "com.example.triangle/android.app.NativeActivity" > /dev/null
 
 clean:

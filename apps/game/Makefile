@@ -1,4 +1,5 @@
 SDK     = $(HOME)/Library/Android/sdk
+JAR     = $(SDK)/platforms/android-34/android.jar
 ADB     = $(SDK)/platform-tools/adb
 AAPT    = $(SDK)/build-tools/34.0.0/aapt
 SIGNER  = $(SDK)/build-tools/34.0.0/apksigner
@@ -11,10 +12,10 @@ LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -landroid -lm
 
 all:
 	@mkdir -p lib/arm64-v8a
-	javac -cp $(SDK)/platforms/android-21/android.jar --release 11 MainActivity.java
-	$(D8) --lib $(SDK)/platforms/android-21/android.jar MainActivity.class --output .
+	javac -cp $(JAR) --release 11 MainActivity.java
+	$(D8) --lib $(JAR) MainActivity.class --output .
 	$(CC) $(CFLAGS) game.c -o lib/arm64-v8a/libgame.so $(LDFLAGS)
-	$(AAPT) package -f -M AndroidManifest.xml -I $(SDK)/platforms/android-21/android.jar -F game.unsigned.apk
+	$(AAPT) package -f -M AndroidManifest.xml -I $(JAR) -F game.unsigned.apk
 	$(AAPT) add game.unsigned.apk lib/arm64-v8a/libgame.so > /dev/null
 	$(AAPT) add game.unsigned.apk classes.dex > /dev/null
 	$(AAPT) add game.unsigned.apk assets/vert.glsl > /dev/null

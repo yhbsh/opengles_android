@@ -10,13 +10,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Create a TextView programmatically
         TextView textView = new TextView(this);
         textView.setText("Hello, World!");
         textView.setTextSize(24);
         textView.setGravity(Gravity.CENTER);
-
-        // Set the TextView as the activity layout
         setContentView(textView);
     }
 }

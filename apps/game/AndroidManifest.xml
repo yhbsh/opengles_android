@@ -4,14 +4,8 @@
     <uses-feature android:glEsVersion="0x00030000" android:required="true" />
 
     <application
-        android:label="Game">
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:screenOrientation="portrait">
-        </activity>
-
+        android:label="Game"
+        android:hasCode="false">
         <activity
             android:name="android.app.NativeActivity"
             android:exported="true"

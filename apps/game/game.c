@@ -8,6 +8,7 @@
 #include <android/native_activity.h>
 #include <android/native_window.h>
 
+#include <math.h>
 #include <pthread.h>
 
 #include <stdbool.h>
@@ -16,9 +17,9 @@
 
 #include <unistd.h>
 
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "Engine", __VA_ARGS__))
-#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
-#define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "Engine", __VA_ARGS__))
+#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "ENGINE", __VA_ARGS__))
+#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "ENGINE", __VA_ARGS__))
+#define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "ENGINE", __VA_ARGS__))
 
 typedef struct {
     ANativeWindow *window;
@@ -57,6 +58,18 @@ const char *load_shader(const char *file_path) {
     AAsset_close(asset);
 
     return shader_code;
+}
+
+void createRotationMatrix(float angle, float *matrix) {
+    float cosTheta = cosf(angle);
+    float sinTheta = sinf(angle);
+
+    // clang-format off
+    matrix[0] = cosTheta; matrix[4] = -sinTheta; matrix[8]  = 0.0f; matrix[12] = 0.0f;
+    matrix[1] = sinTheta; matrix[5] = cosTheta;  matrix[9]  = 0.0f; matrix[13] = 0.0f;
+    matrix[2] = 0.0f;     matrix[6] = 0.0f;      matrix[10] = 1.0f; matrix[14] = 0.0f;
+    matrix[3] = 0.0f;     matrix[7] = 0.0f;      matrix[11] = 0.0f; matrix[15] = 1.0f;
+    // clang-format off
 }
 
 void *render_task(void *arg) {
@@ -105,12 +118,12 @@ void *render_task(void *arg) {
         exit(0);
     }
 
-    const char *vertex_shader_source = load_shader("game_vert.glsl");
+    const char *vertex_shader_source = load_shader("vert.glsl");
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vertex_shader_source, NULL);
     glCompileShader(vs);
 
-    const char *fragment_shader_source = load_shader("game_frag.glsl");
+    const char *fragment_shader_source = load_shader("frag.glsl");
     GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &fragment_shader_source, NULL);
     glCompileShader(fs);
@@ -125,9 +138,9 @@ void *render_task(void *arg) {
 
     // clang-format off
     float vertices[] = {
-        -0.5f, -0.5f, 
-        +0.5f, -0.5f, 
-        +0.0f, +0.5f, 
+        -0.5f, -0.5f, +0.8f, +0.0f, +0.0f,
+        +0.5f, -0.5f, +0.0f, +1.0f, +0.0f,
+        +0.0f, +0.5f, +0.0f, +0.0f, +1.0f,
     };
     // clang-format on
 
@@ -139,20 +152,33 @@ void *render_task(void *arg) {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+
+    float angle = 0.0f;
+
+    float transform[16];
+    GLuint transformLoc = glGetUniformLocation(program, "transform");
 
     while (app.running) {
         glClearColor(0.1f, 0.6f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        angle += 0.01f;
+        createRotationMatrix(angle, transform);
+
         glUseProgram(program);
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, transform);
+
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
         glBindVertexArray(0);
+
         eglSwapBuffers(app.egl_display, app.egl_surface);
     }
 
@@ -178,26 +204,25 @@ void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     app.running = false;
     pthread_join(app.thread, NULL);
 
-    if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
-        LOGE("cannot unbind EGL context");
-    }
-
-    if (!eglDestroySurface(app.egl_display, app.egl_surface)) {
-        LOGE("cannot destroy EGL surface");
-    }
-
-    if (!eglDestroyContext(app.egl_display, app.egl_context)) {
-        LOGE("cannot destroy EGL context");
-    }
-
-    if (!eglTerminate(app.egl_display)) {
-        LOGE("cannot terminate EGL");
-    }
+    if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) LOGE("cannot unbind EGL context");
+    if (!eglDestroySurface(app.egl_display, app.egl_surface)) LOGE("cannot destroy EGL surface");
+    if (!eglDestroyContext(app.egl_display, app.egl_context)) LOGE("cannot destroy EGL context");
+    if (!eglTerminate(app.egl_display)) LOGE("cannot terminate EGL");
 
     app.egl_context = NULL;
     app.egl_display = NULL;
     app.egl_surface = NULL;
     app.window = NULL;
+}
+
+void onNativeWindowResized(ANativeActivity *activity, ANativeWindow *window) {
+    (void)activity;
+    (void)window;
+    LOGI("onNativeWindowResized");
+
+    if (app.egl_display != EGL_NO_DISPLAY && app.egl_surface != EGL_NO_SURFACE) {
+        eglMakeCurrent(app.egl_display, app.egl_surface, app.egl_surface, app.egl_context);
+    }
 }
 
 JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedState, size_t savedStateSize) {
@@ -206,5 +231,6 @@ JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedSt
 
     app.activity = activity;
     app.activity->callbacks->onNativeWindowCreated = onNativeWindowCreated;
+    app.activity->callbacks->onNativeWindowResized = onNativeWindowResized;
     app.activity->callbacks->onNativeWindowDestroyed = onNativeWindowDestroyed;
 }

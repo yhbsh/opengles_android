@@ -5,3 +5,5 @@ compile_commands.json
 /build
 *.wav
 *.mp3
+*.dex
+*.class

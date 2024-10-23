@@ -2,7 +2,7 @@ ANDROID_SDK = $(HOME)/Library/Android/sdk
 ANDROID_JAR = $(ANDROID_SDK)/platforms/android-34/android.jar
 CC          = $(HOME)/Library/Android/sdk/ndk/27.1.12297006/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android34-clang
 
-CFLAGS  = -Wall
+CFLAGS  = -Wall -Wextra
 LDFLAGS = -shared -fPIC -llog -landroid -lcamera2ndk -lmediandk -lc -lm
 
 .PHONE: all clean

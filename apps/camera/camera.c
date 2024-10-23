@@ -14,115 +14,145 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "ENGINE", __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "ENGINE", __VA_ARGS__))
 #define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "ENGINE", __VA_ARGS__))
 
+typedef struct {
+    ACameraManager *manager;
+    ACameraDevice *device;
+    ACameraCaptureSession *captureSession;
+    ACaptureRequest *captureRequest;
+    ACameraOutputTarget *outputTarget;
+    ACaptureSessionOutput *sessionOutput;
+    ACaptureSessionOutputContainer *outputContainer;
+} Camera;
+
 typedef struct AndroidApp {
-    ANativeActivity *activity;
     ANativeWindow *window;
     bool running;
     pthread_t thread;
-
 } AndroidApp;
 
-AndroidApp app = {0};
-
 void *camera_task(void *arg) {
-    (void)arg;
     int ret;
 
-    // Step 1: Create a Camera Manager
-    ACameraManager *manager = ACameraManager_create();
-    assert(manager != NULL && "Failed to create camera manager");
+    AndroidApp *app = (AndroidApp *)arg;
 
-    // Step 2: Get the Camera ID List
-    ACameraIdList *ids_list = NULL;
-    ret = ACameraManager_getCameraIdList(manager, &ids_list);
-    LOGI("ACameraManager_getCameraIdList returned: %d", ret);
-    assert(ret == ACAMERA_OK && ids_list != NULL && "Failed to get camera ID list");
+    Camera camera = {0};
+    camera.manager = ACameraManager_create();
+    assert(camera.manager && "Failed to create camera manager");
 
-    // Step 3: Open the Camera Device
-    ACameraDevice_StateCallbacks camera_callbacks = {0};
-    ACameraDevice *device = NULL;
-    ret = ACameraManager_openCamera(manager, ids_list->cameraIds[0], &camera_callbacks, &device);
-    LOGI("ACameraManager_openCamera returned: %d", ret);
-    assert(ret == ACAMERA_OK && device != NULL && "Failed to open camera device");
+    // 1. list all available cameras
+    ACameraIdList *cameraIdList = NULL;
+    ret = ACameraManager_getCameraIdList(camera.manager, &cameraIdList);
+    assert(ret == ACAMERA_OK && cameraIdList && "Failed to get camera ID list");
 
-    // Step 4: Create a Capture Session Output
-    ACaptureSessionOutput *capture_session_output = NULL;
-    ret = ACaptureSessionOutput_create(app.window, &capture_session_output);
-    LOGI("ACaptureSessionOutput_create returned: %d", ret);
-    assert(ret == ACAMERA_OK && capture_session_output != NULL && "Failed to create capture session output");
+    // 2. open the first available camera
+    ACameraDevice_StateCallbacks camera_state_callbacks = {0};
+    ret = ACameraManager_openCamera(camera.manager, cameraIdList->cameraIds[0], &camera_state_callbacks, &camera.device);
+    assert(ret == ACAMERA_OK && camera.device && "Failed to open camera device");
 
-    // Step 5: Create a Session Output Container and Add Output
-    ACaptureSessionOutputContainer *capture_session_output_container = NULL;
-    ret = ACaptureSessionOutputContainer_create(&capture_session_output_container);
-    LOGI("ACaptureSessionOutputContainer_create returned: %d", ret);
-    assert(ret == ACAMERA_OK && capture_session_output_container != NULL && "Failed to create session output container");
+    // 3. create capture session output
+    ret = ACaptureSessionOutput_create(app->window, &camera.sessionOutput);
+    assert(ret == ACAMERA_OK && camera.sessionOutput && "Failed to create session output");
 
-    ret = ACaptureSessionOutputContainer_add(capture_session_output_container, capture_session_output);
-    LOGI("ACaptureSessionOutputContainer_add returned: %d", ret);
-    assert(ret == ACAMERA_OK && "Failed to add session output");
+    // 4. create output container and add session output
+    ret = ACaptureSessionOutputContainer_create(&camera.outputContainer);
+    assert(ret == ACAMERA_OK && camera.outputContainer && "Failed to create output container");
 
-    // Step 6: Create a Capture Request (Preview)
-    ACaptureRequest *capture_request = NULL;
-    ret = ACameraDevice_createCaptureRequest(device, TEMPLATE_PREVIEW, &capture_request);
-    LOGI("ACameraDevice_createCaptureRequest returned: %d", ret);
-    assert(ret == ACAMERA_OK && capture_request != NULL && "Failed to create capture request");
+    ret = ACaptureSessionOutputContainer_add(camera.outputContainer, camera.sessionOutput);
+    assert(ret == ACAMERA_OK && "Failed to add session output to container");
 
-    // Step 7: Create an Output Target and Add to Capture Request
-    ACameraOutputTarget *output_target = NULL;
-    ret = ACameraOutputTarget_create(app.window, &output_target);
-    LOGI("ACameraOutputTarget_create returned: %d", ret);
-    assert(ret == ACAMERA_OK && output_target != NULL && "Failed to create output target");
+    // 5. create capture request
+    ret = ACameraDevice_createCaptureRequest(camera.device, TEMPLATE_PREVIEW, &camera.captureRequest);
+    assert(ret == ACAMERA_OK && camera.captureRequest && "Failed to create capture request");
 
-    ret = ACaptureRequest_addTarget(capture_request, output_target);
-    LOGI("ACaptureRequest_addTarget returned: %d", ret);
+    // 6. create output target and add to capture request
+    ret = ACameraOutputTarget_create(app->window, &camera.outputTarget);
+    assert(ret == ACAMERA_OK && camera.outputTarget && "Failed to create output target");
+
+    ret = ACaptureRequest_addTarget(camera.captureRequest, camera.outputTarget);
     assert(ret == ACAMERA_OK && "Failed to add target to capture request");
 
-    // Step 8: Create the Capture Session
-    ACameraCaptureSession *capture_session = NULL;
-    ACameraCaptureSession_stateCallbacks session_state_callbacks = {.context = NULL, .onActive = NULL, .onReady = NULL, .onClosed = NULL};
-    ret = ACameraDevice_createCaptureSession(device, capture_session_output_container, &session_state_callbacks, &capture_session);
-    LOGI("ACameraDevice_createCaptureSession returned: %d", ret);
-    assert(ret == ACAMERA_OK && capture_session != NULL && "Failed to create capture session");
+    // 7. create capture session
+    const ACameraCaptureSession_stateCallbacks capture_session_callbacks = {0};
+    ret = ACameraDevice_createCaptureSession(camera.device, camera.outputContainer, &capture_session_callbacks, &camera.captureSession);
+    assert(ret == ACAMERA_OK && camera.captureSession && "Failed to create capture session");
 
-    LOGI("Successfully created capture session");
-
-    // Step 9: Start the Capture Session
-    ret = ACameraCaptureSession_setRepeatingRequest(capture_session, NULL, 1, &capture_request, NULL);
-    LOGI("ACameraCaptureSession_setRepeatingRequest returned: %d", ret);
+    // 8. start capture session
+    ret = ACameraCaptureSession_setRepeatingRequest(camera.captureSession, NULL, 1, &camera.captureRequest, NULL);
     assert(ret == ACAMERA_OK && "Failed to start capture session");
+
+    while (app->running) {
+        // nothing
+    }
+
+    if (cameraIdList) {
+        ACameraManager_deleteCameraIdList(cameraIdList);
+    }
+
+    if (camera.captureSession) {
+        ACameraCaptureSession_stopRepeating(camera.captureSession);
+        ACameraCaptureSession_close(camera.captureSession);
+    }
+    if (camera.captureRequest) {
+        ACaptureRequest_free(camera.captureRequest);
+    }
+    if (camera.outputTarget) {
+        ACameraOutputTarget_free(camera.outputTarget);
+    }
+    if (camera.sessionOutput) {
+        ACaptureSessionOutput_free(camera.sessionOutput);
+    }
+    if (camera.outputContainer) {
+        ACaptureSessionOutputContainer_free(camera.outputContainer);
+    }
+    if (camera.device) {
+        ACameraDevice_close(camera.device);
+    }
+    if (camera.manager) {
+        ACameraManager_delete(camera.manager);
+    }
 
     return NULL;
 }
 
-void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *window) {
+void on_window_init(ANativeActivity *activity, ANativeWindow *window) {
     LOGI("onNativeWindowCreated");
 
-    (void)activity;
-    app.window = window;
-    app.running = true;
+    AndroidApp *app = (AndroidApp *)activity->instance;
 
-    pthread_create(&app.thread, NULL, camera_task, NULL);
+    app->window = window;
+    app->running = true;
+
+    pthread_create(&app->thread, NULL, camera_task, app);
 }
 
-void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
-    (void)activity;
+void on_window_deinit(ANativeActivity *activity, ANativeWindow *window) {
+    (void)window;
     LOGI("onNativeWindowDestroyed");
-    app.running = false;
-    pthread_join(app.thread, NULL);
-    app.window = NULL;
+
+    AndroidApp *app = (AndroidApp *)activity->instance;
+
+    app->running = false;
+
+    pthread_join(app->thread, NULL);
+
+    app->window = NULL;
 }
 
 JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedState, size_t savedStateSize) {
     (void)savedState;
     (void)savedStateSize;
 
-    app.activity = activity;
-    app.activity->callbacks->onNativeWindowCreated = onNativeWindowCreated;
-    app.activity->callbacks->onNativeWindowDestroyed = onNativeWindowDestroyed;
+    AndroidApp *app = malloc(sizeof(AndroidApp));
+    memset(app, 0, sizeof(AndroidApp));
+
+    activity->callbacks->onNativeWindowCreated = on_window_init;
+    activity->callbacks->onNativeWindowDestroyed = on_window_deinit;
+    activity->instance = app;
 }

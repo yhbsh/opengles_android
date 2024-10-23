@@ -185,6 +185,7 @@ void *render_task(void *arg) {
     glBindVertexArray(0);
 
     float angle = 0.0f;
+    float speed = 0.0005f;
 
     float rotationX[16];
     float rotationY[16];
@@ -194,11 +195,14 @@ void *render_task(void *arg) {
         glClearColor(0.1f, 0.6f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        angle += 0.02f;
+        angle += speed;
+        if (angle > 360.0f) angle -= 360.0f;
 
-        createRotationMatrixX(angle, rotationX);
-        createRotationMatrixY(angle, rotationY);
-        createRotationMatrixZ(angle, rotationZ);
+        float interpolatedAngle = sinf(angle) * 60.0f;
+
+        createRotationMatrixX(interpolatedAngle, rotationX);
+        createRotationMatrixY(interpolatedAngle, rotationY);
+        createRotationMatrixZ(interpolatedAngle, rotationZ);
 
         glUseProgram(program);
         glUniformMatrix4fv(glGetUniformLocation(program, "rotationX"), 1, GL_FALSE, rotationX);
@@ -211,7 +215,6 @@ void *render_task(void *arg) {
 
         eglSwapBuffers(app.egl_display, app.egl_surface);
     }
-
     return NULL;
 }
 

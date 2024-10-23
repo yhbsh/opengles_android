@@ -2,25 +2,29 @@ SDK     = $(HOME)/Library/Android/sdk
 ADB     = $(SDK)/platform-tools/adb
 AAPT    = $(SDK)/build-tools/34.0.0/aapt
 SIGNER  = $(SDK)/build-tools/34.0.0/apksigner
+D8      = $(SDK)/build-tools/34.0.0/d8
 CC      = $(SDK)/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
 CFLAGS  = -Wall -Wextra
-LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -landroid
+LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -landroid -lm
 
 .PHONE: all clean
 
 all:
 	@mkdir -p lib/arm64-v8a
+	javac -cp $(SDK)/platforms/android-21/android.jar --release 11 MainActivity.java
+	$(D8) --lib $(SDK)/platforms/android-21/android.jar MainActivity.class --output .
 	$(CC) $(CFLAGS) game.c -o lib/arm64-v8a/libgame.so $(LDFLAGS)
 	$(AAPT) package -f -M AndroidManifest.xml -I $(SDK)/platforms/android-21/android.jar -F game.unsigned.apk
 	$(AAPT) add game.unsigned.apk lib/arm64-v8a/libgame.so > /dev/null
+	$(AAPT) add game.unsigned.apk classes.dex > /dev/null
 	$(AAPT) add game.unsigned.apk assets/vert.glsl > /dev/null
 	$(AAPT) add game.unsigned.apk assets/frag.glsl > /dev/null
 	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out game.apk game.unsigned.apk
-	@rm -rf game.unsigned.apk game.apk.idsig
+	@rm -rf **.unsigned.apk **.idsig **.dex **.class
 
 launch: all
 	@$(ADB) install game.apk > /dev/null
-	@$(ADB) shell am start -n "com.example.game/android.app.NativeActivity" > /dev/null
+	@$(ADB) shell am start -n "com.example.game/.MainActivity" > /dev/null
 
 clean:
-	rm -rf *.apk *.unsigned.apk
+	rm -rf **.apk **.unsigned.apk

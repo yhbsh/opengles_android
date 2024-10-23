@@ -8,7 +8,6 @@
 #include <android/native_activity.h>
 #include <android/native_window.h>
 
-#include <math.h>
 #include <pthread.h>
 
 #include <stdbool.h>
@@ -58,42 +57,6 @@ const char *load_shader(const char *file_path) {
     AAsset_close(asset);
 
     return shader_code;
-}
-
-void createRotationMatrixX(float angle, float *matrix) {
-    float cosTheta = cosf(angle);
-    float sinTheta = sinf(angle);
-
-    // clang-format off
-    matrix[0] = 1.0f;  matrix[4] = 0.0f;     matrix[8]  = 0.0f;     matrix[12] = 0.0f;
-    matrix[1] = 0.0f;  matrix[5] = cosTheta; matrix[9]  = -sinTheta; matrix[13] = 0.0f;
-    matrix[2] = 0.0f;  matrix[6] = sinTheta; matrix[10] = cosTheta; matrix[14] = 0.0f;
-    matrix[3] = 0.0f;  matrix[7] = 0.0f;     matrix[11] = 0.0f;     matrix[15] = 1.0f;
-    // clang-format on
-}
-
-void createRotationMatrixY(float angle, float *matrix) {
-    float cosTheta = cosf(angle);
-    float sinTheta = sinf(angle);
-
-    // clang-format off
-    matrix[0] = cosTheta;  matrix[4] = 0.0f; matrix[8]  = sinTheta;  matrix[12] = 0.0f;
-    matrix[1] = 0.0f;      matrix[5] = 1.0f; matrix[9]  = 0.0f;      matrix[13] = 0.0f;
-    matrix[2] = -sinTheta; matrix[6] = 0.0f; matrix[10] = cosTheta;  matrix[14] = 0.0f;
-    matrix[3] = 0.0f;      matrix[7] = 0.0f; matrix[11] = 0.0f;      matrix[15] = 1.0f;
-    // clang-format on
-}
-
-void createRotationMatrixZ(float angle, float *matrix) {
-    float cosTheta = cosf(angle);
-    float sinTheta = sinf(angle);
-
-    // clang-format off
-    matrix[0] = cosTheta; matrix[4] = -sinTheta; matrix[8]  = 0.0f; matrix[12] = 0.0f;
-    matrix[1] = sinTheta; matrix[5] = cosTheta;  matrix[9]  = 0.0f; matrix[13] = 0.0f;
-    matrix[2] = 0.0f;     matrix[6] = 0.0f;      matrix[10] = 1.0f; matrix[14] = 0.0f;
-    matrix[3] = 0.0f;     matrix[7] = 0.0f;      matrix[11] = 0.0f; matrix[15] = 1.0f;
-    // clang-format on
 }
 
 void *render_task(void *arg) {
@@ -185,29 +148,17 @@ void *render_task(void *arg) {
     glBindVertexArray(0);
 
     float angle = 0.0f;
-    float speed = 0.0005f;
-
-    float rotationX[16];
-    float rotationY[16];
-    float rotationZ[16];
 
     while (app.running) {
         glClearColor(0.1f, 0.6f, 0.8f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        angle += speed;
-        if (angle > 360.0f) angle -= 360.0f;
-
-        float interpolatedAngle = sinf(angle) * 60.0f;
-
-        createRotationMatrixX(interpolatedAngle, rotationX);
-        createRotationMatrixY(interpolatedAngle, rotationY);
-        createRotationMatrixZ(interpolatedAngle, rotationZ);
+        angle += 0.01;
 
         glUseProgram(program);
-        glUniformMatrix4fv(glGetUniformLocation(program, "rotationX"), 1, GL_FALSE, rotationX);
-        glUniformMatrix4fv(glGetUniformLocation(program, "rotationY"), 1, GL_FALSE, rotationY);
-        glUniformMatrix4fv(glGetUniformLocation(program, "rotationZ"), 1, GL_FALSE, rotationZ);
+        glUniform1f(glGetUniformLocation(program, "angleX"), 0);
+        glUniform1f(glGetUniformLocation(program, "angleY"), angle);
+        glUniform1f(glGetUniformLocation(program, "angleZ"), angle);
 
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);

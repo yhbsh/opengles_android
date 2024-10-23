@@ -3,6 +3,9 @@ compile_commands.json
 .deps
 *.apk
 /build
+*.png
+*.jpeg
+*.jpg
 *.wav
 *.mp3
 *.dex

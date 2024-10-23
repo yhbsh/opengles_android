@@ -1,4 +1,4 @@
-TARGETS := list game native triangle video
+TARGETS := list game audio triangle video
 
 .PHONY: all clean launch $(TARGETS)
 
@@ -10,8 +10,8 @@ list:
 game:
 	$(MAKE) -C apps/game
 
-native:
-	$(MAKE) -C apps/native
+audio:
+	$(MAKE) -C apps/audio
 
 triangle:
 	$(MAKE) -C apps/triangle
@@ -22,7 +22,7 @@ video:
 clean:
 	$(MAKE) -C apps/list clean
 	$(MAKE) -C apps/game clean
-	$(MAKE) -C apps/native clean
+	$(MAKE) -C apps/audio clean
 	$(MAKE) -C apps/triangle clean
 	$(MAKE) -C apps/video clean
 

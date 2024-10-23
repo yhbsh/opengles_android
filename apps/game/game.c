@@ -144,10 +144,9 @@ void *render_task(void *arg) {
 
     // clang-format off
     float vertices[] = {
-        -1.0f, +0.25f, +0.0f, +0.0f,
-        -1.0f, -0.25f, +0.0f, +1.0f,
-        +1.0f, +0.25f, +1.0f, +0.0f,
-        +1.0f, -0.25f, +1.0f, +1.0f,
+        -0.5f, +0.25f, +0.0f, +0.0f,
+        +0.5f, +0.25f, +0.0f, +1.0f,
+        +0.0f, -0.25f, +1.0f, +0.0f,
     };
     // clang-format on
 
@@ -194,8 +193,8 @@ void *render_task(void *arg) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         angleX += 0;
-        angleY += 6;
-        angleZ += 0;
+        angleY += 0;
+        angleZ += 2;
 
         glUseProgram(program);
         glUniform1i(glGetUniformLocation(program, "angleX"), angleX);

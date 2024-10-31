@@ -174,7 +174,7 @@ void *run_main(void *arg) {
 
     int ret;
 
-    if ((ret = avformat_open_input(&app.format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", NULL, NULL)) < 0) {
+    if ((ret = avformat_open_input(&app.format_context, "rtmp://192.168.1.187:1935/live/stream", NULL, NULL)) < 0) {
         LOG("[ERROR]: avformat_open_input %s", av_err2str(ret));
         exit(1);
     }
@@ -184,8 +184,8 @@ void *run_main(void *arg) {
         exit(1);
     }
 
-    const AVCodec *vcodec = avcodec_find_decoder_by_name("h264");
-    if ((ret = av_find_best_stream(app.format_context, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0)) < 0) {
+    const AVCodec *vcodec = NULL;
+    if ((ret = av_find_best_stream(app.format_context, AVMEDIA_TYPE_VIDEO, -1, -1, &vcodec, 0)) < 0) {
         LOG("[ERROR]: av_find_best_stream %s", av_err2str(ret));
         exit(1);
     }

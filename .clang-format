@@ -4,7 +4,7 @@ IndentWidth: 4
 TabWidth: 4
 UseTab: Never
 
-ColumnLimit: 300
+ColumnLimit: 400
 
 AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: true  

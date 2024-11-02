@@ -52,7 +52,7 @@ void *stream_task(void *arg) {
     // av_log_set_callback(custom_callback);
 
     AVDictionary *opt = NULL;
-    av_dict_set(&opt, "video_size", "640x480", 0);
+    av_dict_set(&opt, "video_size", "480x680", 0);
     av_dict_set(&opt, "framerate", "60", 0);
     av_dict_set(&opt, "camera_index", "0", 0);
     av_dict_set(&opt, "input_queue_size", "5", 0);
@@ -88,6 +88,8 @@ void *stream_task(void *arg) {
         LOGE("[ERROR]: avcodec_open2: %s\n", av_err2str(ret));
         exit(0);
     }
+
+    LOG("%dx%d", decoder_context->width, decoder_context->height);
 
     const AVCodec *encoder = avcodec_find_encoder(AV_CODEC_ID_H264);
     if (!encoder) {
@@ -181,7 +183,7 @@ void *stream_task(void *arg) {
                 av_packet_rescale_ts(pkt, encoder_context->time_base, output_stream->time_base);
 
                 AVRational *time_base = &output_stream->time_base;
-                LOG("pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s stream_index:%d\n", av_ts2str(pkt->pts), av_ts2timestr(pkt->pts, time_base), av_ts2str(pkt->dts), av_ts2timestr(pkt->dts, time_base), av_ts2str(pkt->duration), av_ts2timestr(pkt->duration, time_base), pkt->stream_index);
+                // LOG("pts:%s pts_time:%s dts:%s dts_time:%s duration:%s duration_time:%s stream_index:%d\n", av_ts2str(pkt->pts), av_ts2timestr(pkt->pts, time_base), av_ts2str(pkt->dts), av_ts2timestr(pkt->dts, time_base), av_ts2str(pkt->duration), av_ts2timestr(pkt->duration, time_base), pkt->stream_index);
 
                 if ((ret = av_interleaved_write_frame(output_format_context, pkt)) < 0) {
                     LOGE("av_interleaved_write_frame: %s\n", av_err2str(ret));

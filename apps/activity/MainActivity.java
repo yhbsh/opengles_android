@@ -12,16 +12,16 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(new NativeSurfaceView(this));
+        setContentView(new CustomView(this));
     }
 }
 
-class NativeSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
+class CustomView extends SurfaceView implements SurfaceHolder.Callback {
     static {
         System.loadLibrary("engine");
     }
 
-    public NativeSurfaceView(Context context) {
+    public CustomView(Context context) {
         super(context);
         getHolder().addCallback(this);
     }

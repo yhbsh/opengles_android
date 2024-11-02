@@ -1,16 +1,31 @@
-ANDROID_JAR = $(HOME)/Library/Android/sdk/platforms/android-21/android.jar
+SDK     = $(HOME)/Library/Android/sdk
+JAR     = $(SDK)/platforms/android-21/android.jar
+CC      = $(SDK)/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
+STRIP   = $(SDK)/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-strip
+CFLAGS  = -Wall
+LDFLAGS = -shared -fPIC -llog -landroid -lGLESv3
 
-.PHONY: all clean
+.PHONY: all clean install launch
 
 all: activity.apk
 
-activity.apk: MainActivity.java AndroidManifest.xml
-	javac -cp $(ANDROID_JAR) MainActivity.java
-	d8 --lib $(ANDROID_JAR) MainActivity.class --output .
-	aapt package -f -M AndroidManifest.xml -I $(ANDROID_JAR) -F activity.unsigned.apk
+classes.dex: MainActivity.java
+	javac -cp $(JAR) *.java
+	d8 --lib $(JAR) *.class --output .
+
+lib/arm64-v8a/libengine.so: engine.c
+	@mkdir -p lib/arm64-v8a
+	$(CC) $(CFLAGS) engine.c -o lib/arm64-v8a/libengine.so $(LDFLAGS)
+	$(STRIP) lib/arm64-v8a/libengine.so
+
+activity.unsigned.apk: AndroidManifest.xml classes.dex lib/arm64-v8a/libengine.so
+	aapt package -f -M AndroidManifest.xml -I $(JAR) -F activity.unsigned.apk
 	aapt add activity.unsigned.apk classes.dex > /dev/null
-	apksigner sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out activity.apk activity.unsigned.apk
-	@rm -rf activity.apk.idsig activity.unsigned.apk MainActivity.class classes.dex
+	aapt add activity.unsigned.apk lib/arm64-v8a/libengine.so > /dev/null
+
+activity.apk: activity.unsigned.apk
+	apksigner sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out $@ $<
+	@rm -f activity.apk.idsig activity.unsigned.apk
 
 install: activity.apk
 	@adb install -r activity.apk > /dev/null
@@ -19,4 +34,5 @@ launch: install
 	@adb shell am start -n "com.example.activity/.MainActivity" > /dev/null
 
 clean:
-	rm -f *.apk MainActivity.class classes.dex
+	rm -f *.apk *.idsig MainActivity.class classes.dex
+	rm -rf lib

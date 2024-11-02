@@ -2,9 +2,9 @@ SDK     = $(HOME)/Library/Android/sdk
 ADB     = $(SDK)/platform-tools/adb
 AAPT    = $(SDK)/build-tools/34.0.0/aapt
 SIGNER  = $(SDK)/build-tools/34.0.0/apksigner
-CC      = $(SDK)/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
+CC      = $(SDK)/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
 CFLAGS  = -I../../.deps/include -Wall -Wextra
-LDFLAGS = -shared -fPIC -L../../.deps/lib -lGLESv3 -legl -llog -lm -landroid -lavformat -lavcodec -lswscale -lswresample -lavutil
+LDFLAGS = -shared -fPIC -L../../.deps/lib -lGLESv3 -legl -llog -lm -landroid -lavformat -lavcodec -lavutil
 
 .PHONE: all clean
 

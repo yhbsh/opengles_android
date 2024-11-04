@@ -3,7 +3,7 @@ JAR     = $(SDK)/platforms/android-21/android.jar
 CC      = $(SDK)/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
 STRIP   = $(SDK)/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64/bin/llvm-strip
 CFLAGS  = -I../../.deps/include -Wall
-LDFLAGS = -shared -fPIC -L../../.deps/lib -lmediandk -llog -lm -landroid -lavformat -lavcodec -lavutil -lswscale
+LDFLAGS = -shared -fPIC -L../../.deps/lib -legl -lGLESv3 -llog -lm -landroid -lavformat -lavcodec -lavutil -lswscale
  
 .PHONY: all clean install launch
 
@@ -24,7 +24,7 @@ activity.apk: AndroidManifest.xml classes.dex lib/arm64-v8a/libengine.so
 	aapt add activity.unsigned.apk classes.dex > /dev/null
 	aapt add activity.unsigned.apk lib/arm64-v8a/libengine.so > /dev/null
 	apksigner sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out activity.apk activity.unsigned.apk
-	@rm -rf activity.apk.idsig activity.unsigned.apk classes.dex
+	@rm -rf activity.apk.idsig activity.unsigned.apk classes.dex lib
 
 install: activity.apk
 	@adb install -r activity.apk > /dev/null

@@ -12,11 +12,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(new CustomView(this));
+        setContentView(new CustomSurfaceView(this));
+        // setContentView(new CustomTextureView(this));
     }
 }
 
-class CustomView extends SurfaceView implements SurfaceHolder.Callback {
+class CustomSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
     private boolean running = false;
     private Thread renderThread;
 
@@ -24,7 +25,7 @@ class CustomView extends SurfaceView implements SurfaceHolder.Callback {
         System.loadLibrary("engine");
     }
 
-    public CustomView(Context context) {
+    public CustomSurfaceView(Context context) {
         super(context);
         getHolder().addCallback(this);
     }
@@ -37,12 +38,12 @@ class CustomView extends SurfaceView implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
+        stopRendering();
         deinit();
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-    }
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
 
     private void startRendering() {
         running = true;
@@ -57,11 +58,9 @@ class CustomView extends SurfaceView implements SurfaceHolder.Callback {
     private void stopRendering() {
         running = false;
         if (renderThread != null) {
-            renderThread.interrupt();
             try {
                 renderThread.join();
-            } catch (InterruptedException ignored) {
-            }
+            } catch (InterruptedException ignored) {}
             renderThread = null;
         }
     }

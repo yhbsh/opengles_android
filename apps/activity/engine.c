@@ -1,5 +1,8 @@
 #include <jni.h>
 
+#include <EGL/egl.h>
+#include <GLES3/gl3.h>
+
 #include <android/log.h>
 #include <android/native_window_jni.h>
 
@@ -15,16 +18,16 @@
 
 int ret;
 
-ANativeWindow *window = NULL;
-ANativeWindow_Buffer buffer;
-AVFormatContext *format_context = NULL;
-AVCodecContext *decoder_context = NULL;
-AVStream *stream = NULL;
-AVPacket *pkt = NULL;
-AVFrame *frame = NULL;
-AVFrame *tmp_frame = NULL;
-struct SwsContext *sws_context = NULL;
-int64_t launch_time;
+static ANativeWindow *window = NULL;
+static ANativeWindow_Buffer buffer;
+static AVFormatContext *format_context = NULL;
+static AVCodecContext *decoder_context = NULL;
+static AVStream *stream = NULL;
+static AVPacket *pkt = NULL;
+static AVFrame *frame = NULL;
+static AVFrame *tmp_frame = NULL;
+static struct SwsContext *sws_context = NULL;
+static int64_t launch_time;
 
 void custom_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
     (void)ptr;
@@ -48,7 +51,7 @@ void custom_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
     }
 }
 
-JNIEXPORT void JNICALL Java_com_example_activity_CustomView_init(JNIEnv *env, jobject obj, jobject surface) {
+JNIEXPORT void JNICALL Java_com_example_activity_CustomSurfaceView_init(JNIEnv *env, jobject obj, jobject surface) {
     launch_time = av_gettime_relative();
 
     // av_log_set_callback(custom_log_callback);
@@ -63,7 +66,7 @@ JNIEXPORT void JNICALL Java_com_example_activity_CustomView_init(JNIEnv *env, jo
     AVDictionary *options = NULL;
     av_dict_set(&options, "buffer_size", "32", 0);
     av_dict_set(&options, "max_delay", "0", 0);
-    if ((ret = avformat_open_input(&format_context, "rtmp://192.168.1.187:1935/live/stream", NULL, &options)) < 0) {
+    if ((ret = avformat_open_input(&format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", NULL, &options)) < 0) {
         LOGE("[ERROR]: avformat_open_input: %s", av_err2str(ret));
         return;
     }
@@ -101,7 +104,7 @@ JNIEXPORT void JNICALL Java_com_example_activity_CustomView_init(JNIEnv *env, jo
     tmp_frame = av_frame_alloc();
 }
 
-JNIEXPORT void JNICALL Java_com_example_activity_CustomView_step(JNIEnv *env, jobject obj, jint width, jint height) {
+JNIEXPORT void JNICALL Java_com_example_activity_CustomSurfaceView_step(JNIEnv *env, jobject obj, jint width, jint height) {
     ANativeWindow_setBuffersGeometry(window, width, height, WINDOW_FORMAT_RGBX_8888);
 
     ret = av_read_frame(format_context, pkt);
@@ -169,7 +172,7 @@ JNIEXPORT void JNICALL Java_com_example_activity_CustomView_step(JNIEnv *env, jo
     av_packet_unref(pkt);
 }
 
-JNIEXPORT void JNICALL Java_com_example_activity_CustomView_deinit(JNIEnv *env, jobject obj) {
+JNIEXPORT void JNICALL Java_com_example_activity_CustomSurfaceView_deinit(JNIEnv *env, jobject obj) {
     if (window != NULL) {
         ANativeWindow_release(window);
         window = NULL;

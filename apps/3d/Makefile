@@ -14,7 +14,7 @@ all:
 	$(AAPT) package -f -M AndroidManifest.xml -I $(SDK)/platforms/android-21/android.jar -F 3d.unsigned.apk
 	$(AAPT) add 3d.unsigned.apk lib/arm64-v8a/lib3d.so > /dev/null
 	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out 3d.apk 3d.unsigned.apk
-	@rm -rf 3d.unsigned.apk 3d.apk.idsig
+	@rm -rf 3d.unsigned.apk 3d.apk.idsig lib
 
 install: all
 	@$(ADB) install 3d.apk > /dev/null

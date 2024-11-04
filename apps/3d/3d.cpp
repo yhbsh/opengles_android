@@ -47,11 +47,16 @@ void main() {
 const char *fragment_shader_source = R"(#version 300 es
 precision mediump float;
 
+in vec2 TexCoords;
 in vec3 Normal;
 out vec4 FragColor;
 
 void main() {
-    vec3 color = normalize(Normal) * 0.5 + 0.5;
+    vec3 texColor = vec3(TexCoords, 0.5);
+    vec3 normalColor = normalize(Normal) * 0.5 + 0.5;
+
+    // Blend texture and normal colors
+    vec3 color = mix(texColor, normalColor, 0.5); // Adjust the blend factor as needed
     FragColor = vec4(color, 1.0);
 }
 )";
@@ -107,7 +112,7 @@ void *run_main(void *arg) {
     EGLint num_configs;
     eglChooseConfig(egl_display, attributes, &egl_config, 1, &num_configs);
 
-    EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
+    EGLint context_attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
     EGLContext egl_context = eglCreateContext(egl_display, egl_config, EGL_NO_CONTEXT, context_attributes);
     EGLSurface egl_surface = eglCreateWindowSurface(egl_display, egl_config, app->window, NULL);
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
@@ -162,13 +167,14 @@ void *run_main(void *arg) {
     check_program_link_status(program);
     glUseProgram(program);
 
-    while (app->running) {
+    GLint angle_location = glGetUniformLocation(program, "angle");
+    float initial_time = get_system_time_sec();
+    for (int i = 0; app->running; i++) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(0.0f, 1.0f, 1.0f, 1.0f);
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 
-        glUniform1f(glGetUniformLocation(program, "angle"), 2 * get_system_time_sec());
-        glDrawElements(GL_TRIANGLES, sizeof(vertex_indices), GL_UNSIGNED_INT, 0);
-
+        glUniform1f(angle_location, 2 * (get_system_time_sec() - initial_time));
+        glDrawElements(GL_TRIANGLES, i, GL_UNSIGNED_INT, 0);
         eglSwapBuffers(egl_display, egl_surface);
     }
 

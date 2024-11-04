@@ -4,4 +4,4 @@ $ cd opengles_android
 $ make
 ```
 
-[video](https://github.com/user-attachments/assets/0912ae21-a0b3-4792-9cb0-0dd342ba8704)
+[video](https://github.com/user-attachments/assets/092828c6-638c-4339-8c5c-2a19448806a1)

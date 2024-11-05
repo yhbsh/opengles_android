@@ -10,17 +10,17 @@ LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -lc -lm -landroid -lc++_static -nod
 
 all:
 	@mkdir -p lib/arm64-v8a
-	$(CXX) $(CFLAGS) main.cpp -o lib/arm64-v8a/libmain.so $(LDFLAGS)
-	$(AAPT) package -f -M AndroidManifest.xml -I $(SDK)/platforms/android-21/android.jar -F 3d.unsigned.apk
-	$(AAPT) add 3d.unsigned.apk lib/arm64-v8a/libmain.so > /dev/null
-	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out 3d.apk 3d.unsigned.apk
-	@rm -rf 3d.unsigned.apk 3d.apk.idsig lib
+	$(CXX) $(CFLAGS) cube.cpp -o lib/arm64-v8a/libcube.so $(LDFLAGS)
+	$(AAPT) package -f -M AndroidManifest.xml -I $(SDK)/platforms/android-21/android.jar -F cube.unsigned.apk
+	$(AAPT) add cube.unsigned.apk lib/arm64-v8a/libcube.so > /dev/null
+	$(SIGNER) sign --ks ~/.gradle/debug.keystore --ks-key-alias androiddebugkey --ks-pass pass:android --out cube.apk cube.unsigned.apk
+	@rm -rf cube.unsigned.apk cube.apk.idsig lib
 
 install: all
-	@$(ADB) install 3d.apk > /dev/null
+	@$(ADB) install cube.apk > /dev/null
 
 launch: install
-	@$(ADB) shell am start -n "com.example.main/android.app.NativeActivity" > /dev/null
+	@$(ADB) shell am start -n "com.example.cube/android.app.NativeActivity" > /dev/null
 
 clean:
 	rm -rf *.apk *.unsigned.apk

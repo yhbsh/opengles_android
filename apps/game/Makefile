@@ -1,6 +1,6 @@
 ANDROID_SDK = $(HOME)/Library/Android/sdk
 ANDROID_JAR = $(ANDROID_SDK)/platforms/android-21/android.jar
-CC          = $(HOME)/Library/Android/sdk/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
+CC          = $(HOME)/Library/Android/sdk/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
 
 CFLAGS  = -Os -Wall -Wextra -I../../.deps/include
 LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -landroid -lm

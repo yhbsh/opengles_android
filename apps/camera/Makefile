@@ -7,7 +7,7 @@ LDFLAGS = -shared -fPIC -llog -landroid -lcamera2ndk -lmediandk -lc -lm
 
 .PHONE: all clean
 
-all: launch
+all: package
 
 package:
 	@mkdir -p lib/arm64-v8a

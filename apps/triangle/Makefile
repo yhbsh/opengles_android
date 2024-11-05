@@ -2,7 +2,7 @@ SDK     = $(HOME)/Library/Android/sdk
 ADB     = $(SDK)/platform-tools/adb
 AAPT    = $(SDK)/build-tools/34.0.0/aapt
 SIGNER  = $(SDK)/build-tools/34.0.0/apksigner
-CC      = $(SDK)/ndk/21.4.7075529/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
+CC      = $(SDK)/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang
 CFLAGS  = -Wall -Wextra
 LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -landroid -lm
 

@@ -1,7 +1,10 @@
+extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 #include <libavutil/time.h>
+}
 
 #include <jni.h>
 
@@ -22,33 +25,40 @@
 #define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "ENGINE", __VA_ARGS__))
 #define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "ENGINE", __VA_ARGS__))
 
-const char *vertex_shader_source = "#version 300 es\n"
-                                   "layout(location = 0) in vec2 position;\n"
-                                   "layout(location = 1) in vec2 texCoord;\n"
-                                   "out vec2 TexCoord;\n"
-                                   "void main() {\n"
-                                   "   gl_Position = vec4(position, 0.0, 1.0);\n"
-                                   "   TexCoord = texCoord;\n"
-                                   "}\n";
+const char *vertex_shader_source = R"(#version 300 es
+layout(location = 0) in vec2 position;
+layout(location = 1) in vec2 texCoord;
 
-const char *fragment_shader_source = "#version 300 es\n"
-                                     "precision mediump float;\n"
-                                     "in vec2 TexCoord;\n"
-                                     "out vec4 FragColor;\n"
-                                     "uniform sampler2D textureY;\n"
-                                     "uniform sampler2D textureU;\n"
-                                     "uniform sampler2D textureV;\n"
-                                     "void main() {\n"
-                                     "    float r, g, b, y, u, v;\n"
-                                     "    y = texture(textureY, TexCoord).r;\n"
-                                     "    u = texture(textureU, TexCoord).r - 0.5;\n"
-                                     "    v = texture(textureV, TexCoord).r - 0.5;\n"
-                                     "    y = 1.164 * (y - 0.0625);\n"
-                                     "    r = y + 1.596 * v;\n"
-                                     "    g = y - 0.391 * u - 0.813 * v;\n"
-                                     "    b = y + 2.018 * u;\n"
-                                     "    FragColor = vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), 1.0);\n"
-                                     "}\n";
+out vec2 TexCoord;
+
+void main() {
+    gl_Position = vec4(position, 0.0, 1.0);
+    TexCoord = texCoord;
+})";
+
+const char *fragment_shader_source = R"(#version 300 es
+precision mediump float;
+
+in vec2 TexCoord;
+out vec4 FragColor;
+
+uniform sampler2D textureY;
+uniform sampler2D textureU;
+uniform sampler2D textureV;
+
+void main() {
+    float y = texture(textureY, TexCoord).r;
+    float u = texture(textureU, TexCoord).r - 0.5;
+    float v = texture(textureV, TexCoord).r - 0.5;
+
+    y = 1.164 * (y - 0.0625);
+
+    float r = y + 1.596 * v;
+    float g = y - 0.391 * u - 0.813 * v;
+    float b = y + 2.018 * u;
+
+    FragColor = vec4(clamp(r, 0.0, 1.0), clamp(g, 0.0, 1.0), clamp(b, 0.0, 1.0), 1.0);
+})";
 
 typedef struct {
     ANativeWindow *window;
@@ -56,28 +66,6 @@ typedef struct {
     bool running;
     pthread_t thread;
 } AndroidApp;
-
-void custom_log_callback(void *ptr, int level, const char *fmt, va_list vl) {
-    (void)ptr;
-    (void)level;
-
-    static int count = 0;
-    static char prev[120] = {0};
-    char line[120];
-
-    vsnprintf(line, sizeof(line), fmt, vl);
-
-    if (!strcmp(line, prev)) {
-        count++;
-    } else {
-        if (count > 0) {
-            LOG("    Last message repeated %d times", count);
-            count = 0;
-        }
-        strcpy(prev, line);
-        LOG("%s", line);
-    }
-}
 
 void *run_main(void *arg) {
     AndroidApp *app = (AndroidApp *)arg;
@@ -96,6 +84,41 @@ void *run_main(void *arg) {
     EGLSurface egl_surface = eglCreateWindowSurface(egl_display, egl_config, app->window, NULL);
     eglMakeCurrent(egl_display, egl_surface, egl_surface, egl_context);
 
+    GLuint textures[3];
+    glGenTextures(3, textures);
+
+    // clang-format off
+    GLfloat vertices[] = {
+        -1.0f, +1.0f, +0.0f, +0.0f,
+        -1.0f, -1.0f, +0.0f, +1.0f,
+        +1.0f, +1.0f, +1.0f, +0.0f,
+        +1.0f, -1.0f, +1.0f, +1.0f,
+    };
+    GLuint indices[] = {
+        0, 1, 2,
+        1, 2, 3,
+    };
+    // clang-format on
+
+    GLuint VAO;
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    GLuint VBO;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid *)(2 * sizeof(GLfloat)));
+
+    GLuint EBO;
+    glGenBuffers(1, &EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
     GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertex_shader, 1, &vertex_shader_source, NULL);
     glCompileShader(vertex_shader);
@@ -108,21 +131,7 @@ void *run_main(void *arg) {
     glAttachShader(program, vertex_shader);
     glAttachShader(program, fragment_shader);
     glLinkProgram(program);
-    glUseProgram(program);
-
     GLint status;
-    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &status);
-    if (status == GL_FALSE) {
-        char buffer[512];
-        glGetShaderInfoLog(vertex_shader, 512, NULL, buffer);
-        LOGE("Vertex shader compilation error: %s", buffer);
-    }
-    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &status);
-    if (status == GL_FALSE) {
-        char buffer[512];
-        glGetShaderInfoLog(fragment_shader, 512, NULL, buffer);
-        LOGE("Fragment shader compilation error: %s", buffer);
-    }
     glGetProgramiv(program, GL_LINK_STATUS, &status);
     if (status == GL_FALSE) {
         char buffer[512];
@@ -130,48 +139,21 @@ void *run_main(void *arg) {
         LOGE("Shader program linking error: %s", buffer);
     }
 
-    glDeleteShader(vertex_shader);
-    glDeleteShader(fragment_shader);
-
-    GLuint textures[3];
-    glGenTextures(3, textures);
-
-    GLfloat vertices[] = {
-        // clang-format off
-        -1.0f, +1.0f, +0.0f, +0.0f,
-        -1.0f, -1.0f, +0.0f, +1.0f,
-        +1.0f, +1.0f, +1.0f, +0.0f,
-        +1.0f, -1.0f, +1.0f, +1.0f,
-        // clang-format on
-    };
-
-    GLuint VAO;
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-
-    GLuint VBO;
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    GLuint positionAttrib = glGetAttribLocation(program, "position");
-    glEnableVertexAttribArray(positionAttrib);
-    glVertexAttribPointer(positionAttrib, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (void *)0);
-
-    GLuint texCoordAttrib = glGetAttribLocation(program, "texCoord");
-    glEnableVertexAttribArray(texCoordAttrib);
-    glVertexAttribPointer(texCoordAttrib, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (GLvoid *)(2 * sizeof(GLfloat)));
-
+    glUseProgram(program);
     glUniform1i(glGetUniformLocation(program, "textureY"), 0);
     glUniform1i(glGetUniformLocation(program, "textureU"), 1);
     glUniform1i(glGetUniformLocation(program, "textureV"), 2);
 
     int ret;
 
-    // av_log_set_callback(custom_log_callback);
-
+    AVDictionary *options = NULL;
+    av_dict_set(&options, "rtmp_buffer", "0", 0);
+    av_dict_set(&options, "rtmp_live", "live", 0);
+    av_dict_set(&options, "tcp_nodelay", "1", 0);
+    av_dict_set(&options, "analyzeduration", "1000000", 0);
+    av_dict_set(&options, "probesize", "500000", 0);
     AVFormatContext *format_context;
-    if ((ret = avformat_open_input(&format_context, "http://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", NULL, NULL)) < 0) {
+    if ((ret = avformat_open_input(&format_context, "rtmp://192.168.1.187:1935/live/stream", NULL, &options)) < 0) {
         LOGE("[ERROR]: avformat_open_input %s", av_err2str(ret));
         return NULL;
     }
@@ -199,6 +181,7 @@ void *run_main(void *arg) {
         exit(1);
     }
 
+    av_opt_set_int(codec_context, "threads", 16, 0);
     if ((ret = avcodec_open2(codec_context, vcodec, NULL)) < 0) {
         LOG("[ERROR]: avcodec_open2: %s", av_err2str(ret));
         exit(1);
@@ -215,8 +198,6 @@ void *run_main(void *arg) {
         LOG("[ERROR]: av_frame_alloc");
         exit(1);
     }
-
-    int64_t launch_time = av_gettime_relative();
 
     while (app->running) {
         ret = av_read_frame(format_context, pkt);
@@ -257,14 +238,8 @@ void *run_main(void *arg) {
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, frame->width / 2, frame->height / 2, 0, GL_RED, GL_UNSIGNED_BYTE, frame->data[2]);
 
-                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+                glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
                 eglSwapBuffers(egl_display, egl_surface);
-
-                int64_t pts = (1000 * 1000 * frame->pts * vstream->time_base.num) / vstream->time_base.den;
-                int64_t rts = av_gettime_relative() - launch_time;
-                if (pts > rts) av_usleep(pts - rts);
-
-                LOG("Frame: %04ld %s", codec_context->frame_num, av_get_pix_fmt_name((enum AVPixelFormat)frame->format));
             }
         }
 

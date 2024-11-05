@@ -4,7 +4,7 @@ AAPT    = $(SDK)/build-tools/34.0.0/aapt
 SIGNER  = $(SDK)/build-tools/34.0.0/apksigner
 CXX     = $(SDK)/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android21-clang++
 CFLAGS  = -std=c++17 -I../../.deps/include -Wall -Wextra -fno-exceptions -fno-rtti
-LDFLAGS = -shared -fPIC -L../../.deps/lib -lGLESv3 -legl -llog -lm -landroid -lc++_static -nodefaultlibs -lc -lm -landroid -llog
+LDFLAGS = -shared -fPIC -L../../.deps/lib -lGLESv3 -legl -llog -lc -lm -landroid -lc++_static -nodefaultlibs
 
 .PHONY: all clean
 

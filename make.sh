@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TARGETS=("3d" "activity" "audio" "camera" "cube" "game" "list" "triangle" "video")
+TARGETS=("3d" "activity" "audio" "camera" "cube" "game" "list" "grid" "triangle" "video")
 
 mkdir -p build
 for target in "${TARGETS[@]}"; do

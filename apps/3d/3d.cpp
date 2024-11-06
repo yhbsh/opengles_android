@@ -3,8 +3,10 @@
 #include <GLES/egl.h>
 #include <GLES3/gl3.h>
 
+#include <android/input.h>
 #include <android/log.h>
 #include <android/native_activity.h>
+#include <android/native_window.h>
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -63,6 +65,7 @@ void main() {
 
 typedef struct {
     ANativeWindow *window;
+    AInputQueue *input;
 
     int running;
     pthread_t thread;
@@ -163,7 +166,14 @@ void *run_main(void *arg) {
 
     GLint angle_location = glGetUniformLocation(program, "angle");
     float i = 0;
+    AInputEvent *event = NULL;
+
     while (app->running) {
+        while (AInputQueue_getEvent(app->input, &event) >= 0) {
+            if (AInputQueue_preDispatchEvent(app->input, event)) continue;
+            AInputQueue_finishEvent(app->input, event, 0);
+        }
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
@@ -205,6 +215,18 @@ void on_window_deinit(ANativeActivity *activity, ANativeWindow *window) {
     app->window = NULL;
 }
 
+void on_input_init(ANativeActivity *activity, AInputQueue *input) {
+    AndroidApp *app = (AndroidApp *)activity->instance;
+    app->input = input;
+    AInputQueue_attachLooper(input, ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS), ALOOPER_EVENT_INPUT, NULL, NULL);
+}
+
+void on_input_deinit(ANativeActivity *activity, AInputQueue *input) {
+    AndroidApp *app = (AndroidApp *)activity->instance;
+    AInputQueue_detachLooper(input);
+    app->input = NULL;
+}
+
 JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedState, size_t savedStateSize) {
     (void)savedState;
     (void)savedStateSize;
@@ -214,5 +236,7 @@ JNIEXPORT void ANativeActivity_onCreate(ANativeActivity *activity, void *savedSt
 
     activity->callbacks->onNativeWindowCreated = on_window_init;
     activity->callbacks->onNativeWindowDestroyed = on_window_deinit;
+    activity->callbacks->onInputQueueCreated = on_input_init;
+    activity->callbacks->onInputQueueDestroyed = on_input_deinit;
     activity->instance = app;
 }

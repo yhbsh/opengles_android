@@ -1,24 +1,17 @@
-#include <jni.h>
-
 #include <GLES/egl.h>
 #include <GLES3/gl3.h>
 
-#include <android/asset_manager.h>
 #include <android/log.h>
 #include <android/native_activity.h>
 #include <android/native_window.h>
 
 #include <pthread.h>
-
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <unistd.h>
 
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "Engine", __VA_ARGS__))
-#define LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, "Engine", __VA_ARGS__))
-#define LOGV(...) ((void)__android_log_print(ANDROID_LOG_VERBOSE, "Engine", __VA_ARGS__))
+#define LOG(...) ((void)__android_log_print(ANDROID_LOG_INFO, "ENGINE", __VA_ARGS__))
 
 typedef struct {
     ANativeWindow *window;
@@ -58,51 +51,46 @@ void *render_task(void *arg) {
 
     app.egl_display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (app.egl_display == EGL_NO_DISPLAY) {
-        LOGE("cannot get EGL display");
+        LOG("cannot get EGL display");
         exit(0);
     }
 
     if (!eglInitialize(app.egl_display, NULL, NULL)) {
-        LOGE("cannot initialize EGL");
+        LOG("cannot initialize EGL");
         exit(0);
     }
 
-    EGLint attribs[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT, EGL_NONE};
+    EGLint attribs[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, EGL_NONE};
     EGLint numConfigs;
     if (!eglChooseConfig(app.egl_display, attribs, &app.egl_config, 1, &numConfigs) || numConfigs == 0) {
-        LOGE("cannot choose EGL config");
+        LOG("cannot choose EGL config");
         eglTerminate(app.egl_display);
         exit(0);
     }
 
-    EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
+    EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
     app.egl_context = eglCreateContext(app.egl_display, app.egl_config, EGL_NO_CONTEXT, contextAttribs);
     if (app.egl_context == EGL_NO_CONTEXT) {
-        LOGE("cannot create EGL context");
+        LOG("cannot create EGL context");
         eglTerminate(app.egl_display);
         exit(0);
     }
 
     app.egl_surface = eglCreateWindowSurface(app.egl_display, app.egl_config, app.window, NULL);
     if (app.egl_surface == EGL_NO_SURFACE) {
-        LOGE("cannot create EGL window surface");
+        LOG("cannot create EGL window surface");
         eglDestroyContext(app.egl_display, app.egl_context);
         eglTerminate(app.egl_display);
         exit(0);
     }
 
     if (!eglMakeCurrent(app.egl_display, app.egl_surface, app.egl_surface, app.egl_context)) {
-        LOGE("cannot make EGL context current");
+        LOG("cannot make EGL context current");
         eglDestroySurface(app.egl_display, app.egl_surface);
         eglDestroyContext(app.egl_display, app.egl_context);
         eglTerminate(app.egl_display);
         exit(0);
     }
-
-    GLint width, height;
-    eglQuerySurface(app.egl_display, app.egl_surface, EGL_WIDTH, &width);
-    eglQuerySurface(app.egl_display, app.egl_surface, EGL_HEIGHT, &height);
-    glViewport(0, 0, width, height);
 
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vertex_shader_source, NULL);
@@ -116,32 +104,27 @@ void *render_task(void *arg) {
     glAttachShader(program, vs);
     glAttachShader(program, fs);
     glLinkProgram(program);
-
-    glDeleteShader(vs);
-    glDeleteShader(fs);
+    glUseProgram(program);
 
     // clang-format off
     float vertices[] = {
-        -0.9f, +0.7f, 
-        +0.9f, +0.7f, 
+        -0.9f, +0.6f, 
+        +0.9f, +0.6f, 
         -0.9f, +0.8f, 
         +0.9f, +0.8f,
     };
     // clang-format on
 
-    GLuint VAO, VBO;
+    GLuint VAO;
     glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
     glBindVertexArray(VAO);
+
+    GLuint VBO;
+    glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
     glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
 
     GLuint transformLoc = glGetUniformLocation(program, "transform");
     float transform[16];
@@ -152,7 +135,6 @@ void *render_task(void *arg) {
     while (app.is_rendering) {
         glClearColor(0.1f, 0.2f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(program);
 
         AInputEvent *event = NULL;
         while (AInputQueue_getEvent(app.input, &event) >= 0) {
@@ -175,6 +157,8 @@ void *render_task(void *arg) {
             AInputQueue_finishEvent(app.input, event, 1);
         }
 
+        LOG("%f", scroll_offset);
+        if (scroll_offset >= 0.0f) scroll_offset = 0.0f;
         scroll_offset += scroll_velocity;
         scroll_velocity *= damping;
 
@@ -187,13 +171,10 @@ void *render_task(void *arg) {
             transform[15] = 1.0f;
 
             transform[12] = 0.0f;
-            transform[13] = i * -0.2f - scroll_offset;
+            transform[13] = i * -0.25f - scroll_offset;
 
             glUniformMatrix4fv(transformLoc, 1, GL_FALSE, transform);
-
-            glBindVertexArray(VAO);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            glBindVertexArray(0);
         }
 
         eglSwapBuffers(app.egl_display, app.egl_surface);
@@ -203,7 +184,7 @@ void *render_task(void *arg) {
 }
 
 void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *window) {
-    LOGI("onNativeWindowCreated");
+    LOG("onNativeWindowCreated");
 
     (void)activity;
 
@@ -216,25 +197,25 @@ void onNativeWindowCreated(ANativeActivity *activity, ANativeWindow *window) {
 void onNativeWindowDestroyed(ANativeActivity *activity, ANativeWindow *window) {
     (void)activity;
     (void)window;
-    LOGI("onNativeWindowDestroyed");
+    LOG("onNativeWindowDestroyed");
 
     app.is_rendering = false;
     pthread_join(app.render_thread, NULL);
 
     if (!eglMakeCurrent(app.egl_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT)) {
-        LOGE("cannot unbind EGL context");
+        LOG("cannot unbind EGL context");
     }
 
     if (!eglDestroySurface(app.egl_display, app.egl_surface)) {
-        LOGE("cannot destroy EGL surface");
+        LOG("cannot destroy EGL surface");
     }
 
     if (!eglDestroyContext(app.egl_display, app.egl_context)) {
-        LOGE("cannot destroy EGL context");
+        LOG("cannot destroy EGL context");
     }
 
     if (!eglTerminate(app.egl_display)) {
-        LOGE("cannot terminate EGL");
+        LOG("cannot terminate EGL");
     }
 
     app.egl_context = NULL;

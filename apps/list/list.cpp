@@ -37,28 +37,21 @@ typedef struct {
 
 AndroidApp app = {0};
 
-const char *load_shader(const char *file_path) {
-    AAsset *asset = AAssetManager_open(app.activity->assetManager, file_path, AASSET_MODE_BUFFER);
-    if (!asset) {
-        return NULL;
-    }
+const char *vertex_shader_source = R"(#version 300 es
+layout(location = 0) in vec2 vPosition;
+uniform mat4 transform;
 
-    off_t asset_length = AAsset_getLength(asset);
+void main() {
+    gl_Position = transform * vec4(vPosition, 0.0, 1.0);
+})";
 
-    char *shader_code = (char *)malloc(asset_length + 1);
-    if (!shader_code) {
-        AAsset_close(asset);
-        return NULL;
-    }
+const char *fragment_shader_source = R"(#version 300 es
+precision mediump float;
+out vec4 fragColor;
 
-    AAsset_read(asset, shader_code, asset_length);
-
-    shader_code[asset_length] = '\0';
-
-    AAsset_close(asset);
-
-    return shader_code;
-}
+void main() {
+    fragColor = vec4(0.5, 0.7, 0.4, 1.0);
+})";
 
 void *render_task(void *arg) {
     (void)arg;
@@ -111,12 +104,10 @@ void *render_task(void *arg) {
     eglQuerySurface(app.egl_display, app.egl_surface, EGL_HEIGHT, &height);
     glViewport(0, 0, width, height);
 
-    const char *vertex_shader_source = load_shader("vert.glsl");
     GLuint vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vertex_shader_source, NULL);
     glCompileShader(vs);
 
-    const char *fragment_shader_source = load_shader("frag.glsl");
     GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &fragment_shader_source, NULL);
     glCompileShader(fs);

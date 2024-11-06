@@ -7,7 +7,7 @@ LDFLAGS = -shared -fPIC -lGLESv3 -legl -llog -landroid -lm
 
 .PHONE: all clean
 
-all: install
+all: package
 
 package:
 	@mkdir -p lib/arm64-v8a

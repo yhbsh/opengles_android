@@ -68,12 +68,6 @@ typedef struct {
     pthread_t thread;
 } AndroidApp;
 
-float get_system_time_sec() {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (float)ts.tv_sec + (float)ts.tv_nsec / 1e9;
-}
-
 void check_shader_compile_status(GLuint shader) {
     GLint compiled;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
@@ -168,12 +162,13 @@ void *run_main(void *arg) {
     glUseProgram(program);
 
     GLint angle_location = glGetUniformLocation(program, "angle");
-    float initial_time = get_system_time_sec();
+    float i = 0;
     while (app->running) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
-        glUniform1f(angle_location, 2 * (get_system_time_sec() - initial_time));
+        glUniform1f(angle_location, 2 * i);
+        i += 0.010;
         glDrawElements(GL_TRIANGLES, sizeof(vertex_indices), GL_UNSIGNED_INT, 0);
         eglSwapBuffers(egl_display, egl_surface);
     }

@@ -4,7 +4,7 @@ AAPT    = $(SDK)/build-tools/34.0.0/aapt
 SIGNER  = $(SDK)/build-tools/34.0.0/apksigner
 NDK     = $(SDK)/ndk/21.1.6352462/toolchains/llvm/prebuilt/darwin-x86_64
 CC      = $(NDK)/bin/aarch64-linux-android21-clang
-CFLAGS  = -I../../.deps/include -Wall -Wextra
+CFLAGS  = -I../../.deps/include -Wall
 LDFLAGS = -shared -fPIC -L$(NDK)/sysroot/usr/lib/aarch64-linux-android/26 -laaudio -lGLESv3 -legl -llog -landroid -lm
 
 .PHONE: all clean

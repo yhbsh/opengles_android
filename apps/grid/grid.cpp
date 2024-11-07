@@ -24,13 +24,12 @@ static const char *vertex_shader_source = R"(#version 300 es
     precision mediump float;
 
     layout(location = 0) in vec2 aPos;
-    uniform float offset_y;
-    uniform float offset_x;
+    uniform vec2 offset;
 
     void main() {
         gl_Position = vec4(aPos, 0.0, 1.0);
-        gl_Position.y += offset_y;
-        gl_Position.x += offset_x;
+        gl_Position.x += offset.x;
+        gl_Position.y -= offset.y;
     }
 )";
 
@@ -40,7 +39,7 @@ static const char *fragment_shader_source = R"(#version 300 es
     out vec4 FragColor;
 
     void main() {
-        FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        FragColor = vec4(0.0, 1.0, 1.0, 1.0);
     }
 )";
 
@@ -48,8 +47,8 @@ static const char *fragment_shader_source = R"(#version 300 es
 static const GLfloat square_vertices[] = {
     -0.95f, +0.30f, 
     -0.05f, +0.30f, 
-    -0.95f, +0.90f, 
-    -0.05f, +0.90f,
+    -0.95f, +1.00f, 
+    -0.05f, +1.00f,
 };
 // clang-format on
 
@@ -92,53 +91,50 @@ void *run_main(void *arg) {
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), (void *)0);
     glEnableVertexAttribArray(0);
 
-    GLuint offset_y_location = glGetUniformLocation(program, "offset_y");
-    GLuint offset_x_location = glGetUniformLocation(program, "offset_x");
+    GLuint offsetLocation = glGetUniformLocation(program, "offset");
 
-    float scroll_velocity = 0.0f;
-    float scroll_offset = 0.0f;
-    float last_touch_y = 0.0f;
-    int is_scrolling = 0;
+    float scrollOffset = 0.0f;
+    float scrollSpeed = 0.0f;
+    float lastY = 0.0f;
+    float currY = 0.0f;
 
-    AInputEvent *event = NULL;
-
+    int height = ANativeWindow_getHeight(app->window);
     while (app->running) {
-
+        AInputEvent *event = NULL;
         while (AInputQueue_getEvent(app->input, &event) >= 0) {
             if (AInputQueue_preDispatchEvent(app->input, event)) continue;
 
             if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
                 int32_t action = AMotionEvent_getAction(event) & AMOTION_EVENT_ACTION_MASK;
-                if (action == AMOTION_EVENT_ACTION_DOWN) {
-                    last_touch_y = AMotionEvent_getY(event, 0);
-                    is_scrolling = 1;
-                } else if (action == AMOTION_EVENT_ACTION_MOVE && is_scrolling) {
-                    float current_y = AMotionEvent_getY(event, 0);
-                    scroll_velocity = (current_y - last_touch_y) * 0.001f;
-                    last_touch_y = current_y;
+                if (action == AMOTION_EVENT_ACTION_MOVE) {
+                    lastY = currY;
+                    currY = AMotionEvent_getY(event, 0);
+                    scrollSpeed += (currY - lastY) / (height * 2);
+                } else if (action == AMOTION_EVENT_ACTION_DOWN) {
+                    currY = AMotionEvent_getY(event, 0);
+                    scrollSpeed = 0.0f;
                 } else if (action == AMOTION_EVENT_ACTION_UP) {
-                    is_scrolling = 0;
+                    lastY = AMotionEvent_getY(event, 0);
                 }
             }
 
             AInputQueue_finishEvent(app->input, event, 0);
         }
 
-        if (scroll_offset < 0.0f) scroll_offset = 0.0f;
-        if (scroll_offset >= 0.0f) scroll_offset -= scroll_velocity;
+        if (scrollOffset >= 0.0f) scrollOffset = 0.0f;
+        scrollOffset += scrollSpeed;
 
         glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(0.0, 0.0, 0.0, 1.0);
-        for (float y = 0; y < 20; y += 0.7) {
-            for (float x = 0.0; x <= 1.0; x += 1.0) {
-                glUniform1f(offset_y_location, scroll_offset - y);
-                glUniform1f(offset_x_location, x);
+        for (int y = 0; y < 100; y++) {
+            for (int x = 0; x <= 1; x++) {
+                glUniform2f(offsetLocation, x, scrollOffset + y * (0.70 + 0.05) + 0.05);
                 glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
         }
         eglSwapBuffers(egl_display, egl_surface);
 
-        scroll_velocity *= 0.985f;
+        scrollSpeed *= 0.975;
     }
 
     glDeleteBuffers(1, &VBO);

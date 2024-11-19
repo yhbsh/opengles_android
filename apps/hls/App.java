@@ -1,9 +1,14 @@
 package com.example.hls;
 
 import android.app.Activity;
+import android.app.PictureInPictureParams;
+import android.content.res.Configuration;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
+import android.util.Rational;
 import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -22,6 +27,7 @@ public class App extends Activity {
 
         FrameLayout frameLayout = new FrameLayout(this);
         frameLayout.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        frameLayout.setBackgroundColor(0xFF000000);
 
         surfaceView = new SurfaceView(this);
         FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
@@ -30,11 +36,14 @@ public class App extends Activity {
         frameLayout.addView(surfaceView);
         setContentView(frameLayout);
 
+        initializePlayer();
+    }
+
+    private void initializePlayer() {
         SurfaceHolder surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
-                releaseMediaPlayer();
                 player = new MediaPlayer();
                 player.setDisplay(holder);
 
@@ -57,6 +66,7 @@ public class App extends Activity {
                     player.setDataSource(App.this, Uri.parse("http://192.168.1.187:8000/live/stream.m3u8"));
                     player.prepareAsync();
                 } catch (Exception e) {
+                    Log.e("HLS", "Failed to set data source or prepare MediaPlayer", e);
                     releaseMediaPlayer();
                 }
             }
@@ -70,6 +80,7 @@ public class App extends Activity {
 
             @Override
             public void surfaceDestroyed(SurfaceHolder holder) {
+                Log.e("HLS", "Hello World");
                 releaseMediaPlayer();
             }
         });
@@ -80,17 +91,17 @@ public class App extends Activity {
             return;
         }
 
-        float videoAspect = (float)videoWidth / videoHeight;
-        float surfaceAspect = (float)surfaceWidth / surfaceHeight;
+        float videoAspect = (float) videoWidth / videoHeight;
+        float surfaceAspect = (float) surfaceWidth / surfaceHeight;
 
         int newWidth, newHeight;
 
         if (videoAspect > surfaceAspect) {
             newWidth = surfaceWidth;
-            newHeight = (int)(surfaceWidth / videoAspect);
+            newHeight = (int) (surfaceWidth / videoAspect);
         } else {
             newHeight = surfaceHeight;
-            newWidth = (int)(surfaceHeight * videoAspect);
+            newWidth = (int) (surfaceHeight * videoAspect);
         }
 
         ViewGroup.LayoutParams layoutParams = surfaceView.getLayoutParams();
@@ -110,28 +121,34 @@ public class App extends Activity {
         }
     }
 
+
     @Override
-    protected void onPause() {
-        super.onPause();
-        if (player != null) {
-            player.pause();
+    protected void onUserLeaveHint() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            enterPipMode();
         }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (player != null) {
+    private void enterPipMode() {
+        if (player != null && player.isPlaying()) {
             try {
-                player.start();
-            } catch (Exception ignored) {
+                Rational aspectRatio = new Rational(videoWidth > 0 ? videoWidth : 16, videoHeight > 0 ? videoHeight : 9);
+                PictureInPictureParams.Builder pipBuilder = new PictureInPictureParams.Builder();
+                pipBuilder.setAspectRatio(aspectRatio);
+                enterPictureInPictureMode(pipBuilder.build());
+            } catch (Exception e) {
+                Log.e("HLS", "Failed to enter Picture-in-Picture mode", e);
             }
         }
     }
 
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        releaseMediaPlayer();
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        if (isInPictureInPictureMode) {
+            surfaceView.setKeepScreenOn(false);
+        } else {
+            surfaceView.setKeepScreenOn(true);
+        }
     }
 }

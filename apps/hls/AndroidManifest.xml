@@ -5,12 +5,12 @@
 
     <application
         android:label="HLS"
-        android:usesCleartextTraffic="true"
-        android:supportsPictureInPicture="true">
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".App"
             android:exported="true"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:supportsPictureInPicture="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -80,7 +80,6 @@ public class App extends Activity {
 
             @Override
             public void surfaceDestroyed(SurfaceHolder holder) {
-                Log.e("HLS", "Hello World");
                 releaseMediaPlayer();
             }
         });

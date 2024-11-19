@@ -4,11 +4,10 @@ import android.app.Activity;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
-import android.widget.Toast;
 import android.view.ViewGroup;
-import android.view.Gravity;
 import android.widget.FrameLayout;
 
 public class App extends Activity {
@@ -20,14 +19,14 @@ public class App extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
         FrameLayout frameLayout = new FrameLayout(this);
         frameLayout.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        
+
         surfaceView = new SurfaceView(this);
         FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
         surfaceView.setLayoutParams(layoutParams);
-        
+
         frameLayout.addView(surfaceView);
         setContentView(frameLayout);
 
@@ -52,20 +51,12 @@ public class App extends Activity {
                     p.start();
                 });
 
-                player.setOnErrorListener((mp, what, extra) -> {
-                    String errorMessage = "Error playing stream: what=" + what + ", extra=" + extra;
-                    Toast.makeText(App.this, errorMessage, Toast.LENGTH_LONG).show();
-                    releaseMediaPlayer();
-                    return true;
-                });
-
                 player.setOnCompletionListener(mp -> releaseMediaPlayer());
 
                 try {
                     player.setDataSource(App.this, Uri.parse("http://192.168.1.187:8000/live/stream.m3u8"));
                     player.prepareAsync();
                 } catch (Exception e) {
-                    Toast.makeText(App.this, "Failed to load stream", Toast.LENGTH_SHORT).show();
                     releaseMediaPlayer();
                 }
             }
@@ -89,17 +80,17 @@ public class App extends Activity {
             return;
         }
 
-        float videoAspect = (float) videoWidth / videoHeight;
-        float surfaceAspect = (float) surfaceWidth / surfaceHeight;
+        float videoAspect = (float)videoWidth / videoHeight;
+        float surfaceAspect = (float)surfaceWidth / surfaceHeight;
 
         int newWidth, newHeight;
 
         if (videoAspect > surfaceAspect) {
             newWidth = surfaceWidth;
-            newHeight = (int) (surfaceWidth / videoAspect);
+            newHeight = (int)(surfaceWidth / videoAspect);
         } else {
             newHeight = surfaceHeight;
-            newWidth = (int) (surfaceHeight * videoAspect);
+            newWidth = (int)(surfaceHeight * videoAspect);
         }
 
         ViewGroup.LayoutParams layoutParams = surfaceView.getLayoutParams();
@@ -112,7 +103,8 @@ public class App extends Activity {
         if (player != null) {
             try {
                 player.stop();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
             player.release();
             player = null;
         }
@@ -132,7 +124,8 @@ public class App extends Activity {
         if (player != null) {
             try {
                 player.start();
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
     }
 
